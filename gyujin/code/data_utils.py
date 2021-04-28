@@ -9,7 +9,7 @@ from typing import List, Optional, Union
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 @dataclass

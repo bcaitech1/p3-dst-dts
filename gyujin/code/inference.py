@@ -4,7 +4,7 @@ import json
 
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from transformers import BertTokenizer
 
 from data_utils import (WOSDataset, get_examples_from_dialogues)
@@ -25,7 +25,7 @@ def postprocess_state(state):
 def inference(model, eval_loader, processor, device):
     model.eval()
     predictions = {}
-    for batch in tqdm(eval_loader):
+    for batch in tqdm(eval_loader, total=len(eval_loader)):
         input_ids, segment_ids, input_masks, gating_ids, target_ids, guids = [
             b.to(device) if not isinstance(b, list) else b for b in batch
         ]
