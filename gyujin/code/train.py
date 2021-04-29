@@ -6,7 +6,7 @@ import random
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from transformers import AdamW, BertTokenizer, get_linear_schedule_with_warmup
 
 from data_utils import (WOSDataset, get_examples_from_dialogues, load_dataset,
@@ -22,8 +22,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="data/train_dataset")
-    parser.add_argument("--model_dir", type=str, default="results")
+    parser.add_argument("--data_dir", type=str, default="/opt/ml/input/data/train_dataset")
+    parser.add_argument("--model_dir", type=str, default="/opt/ml/results")
     parser.add_argument("--train_batch_size", type=int, default=16)
     parser.add_argument("--eval_batch_size", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
@@ -53,8 +53,8 @@ if __name__ == "__main__":
     parser.add_argument("--teacher_forcing_ratio", type=float, default=0.5)
     args = parser.parse_args()
     
-    args.data_dir = os.environ['SM_CHANNEL_TRAIN']
-    args.model_dir = os.environ['SM_MODEL_DIR']
+    # args.data_dir = os.environ['SM_CHANNEL_TRAIN']
+    # args.model_dir = os.environ['SM_MODEL_DIR']
 
     # random seed 고정
     set_seed(args.random_seed)
@@ -78,8 +78,10 @@ if __name__ == "__main__":
     args.n_gate = len(processor.gating2id) # gating 갯수 none, dontcare, ptr
 
     # Extracting Featrues
+    print('Converting examples to features')
     train_features = processor.convert_examples_to_features(train_examples)
     dev_features = processor.convert_examples_to_features(dev_examples)
+    print('Done converting examples to features')
     
     # Slot Meta tokenizing for the decoder initial inputs
     tokenized_slot_meta = []
@@ -144,9 +146,9 @@ if __name__ == "__main__":
     )
     
     best_score, best_checkpoint = 0, 0
-    for epoch in range(n_epochs):
+    for epoch in tqdm(range(n_epochs)):
         model.train()
-        for step, batch in enumerate(train_loader):
+        for step, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
             input_ids, segment_ids, input_masks, gating_ids, target_ids, guids = [
                 b.to(device) if not isinstance(b, list) else b for b in batch
             ]
