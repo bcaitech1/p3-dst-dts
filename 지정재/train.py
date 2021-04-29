@@ -28,11 +28,11 @@ if __name__ == "__main__":
 
     print(f"Currnet Using Model : {conf['ModelName'][0]}")
 
-    if conf['ModelName'][0] == 'TRADE':
+    if conf['ModelName'] == 'TRADE':
         print("get_args_TRADE")
         args = argparse.Namespace(**conf['TRADE'])
 
-    if conf['ModelName'][0] == 'SUMBT':
+    if conf['ModelName'] == 'SUMBT':
         print("get_args_SUMBT")
         args = argparse.Namespace(**conf['SUMBT'])
 
