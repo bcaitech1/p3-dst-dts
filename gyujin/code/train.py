@@ -18,6 +18,9 @@ from evaluation import _evaluation
 from model import TRADE, masked_cross_entropy_for_value
 # from preprocessor import TRADEPreprocessor
 
+from train_loop import trade_train_loop, submt_train_loop
+from inference import trade_inference, sumbt_inference 
+
 from prepare_preprocessor import get_stuff, get_model
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -60,6 +63,7 @@ if __name__ == "__main__":
 
     args.preprocessor = 'TRADEPreprocessor'
     args.model_class = 'TRADE'    
+    args.use_amp = True
 
     ###############
 
@@ -71,9 +75,6 @@ if __name__ == "__main__":
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
     ontology = json.load(open(f"{args.data_dir}/ontology.json"))
     train_data, dev_data, dev_labels = load_dataset(train_data_file)
-
-
-    args.preprocessor = 'SUMBTPreprocessor'
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
                  train_data, dev_data, slot_meta, ontology)
@@ -148,56 +149,44 @@ if __name__ == "__main__":
         ensure_ascii=False,
     )
 
-    loss_fnc_1 = masked_cross_entropy_for_value  # generation
-    loss_fnc_2 = nn.CrossEntropyLoss()  # gating
+    if args.model_class == 'TRADE':
+        train_loop = trade_train_loop
+        train_loop_kwargs = AttrDict(pad_token_id=tokenizer.pad_token_id)
+        inference_func = trade_inference
+    elif args.model_class == 'SUMBT':
+        train_loop = submt_train_loop
+        train_loop_kwargs = AttrDict()
+        inference_func = sumbt_inference
+    else:
+        raise NotImplementedError()
     
+    scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
     for epoch in tqdm(range(n_epochs)):
         model.train()
         for step, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
-            input_ids, segment_ids, input_masks, gating_ids, target_ids, guids = [
-                b.to(device) if not isinstance(b, list) else b for b in batch
-            ]
-            
-            # teacher forcing
-            if (
-                args.teacher_forcing_ratio > 0.0
-                and random.random() < args.teacher_forcing_ratio
-            ):
-                tf = target_ids
-            else:
-                tf = None
-
-            all_point_outputs, all_gate_outputs = model(
-                input_ids, segment_ids, input_masks, target_ids.size(-1), tf
-            )
-            
-            # generation loss
-            loss_1 = loss_fnc_1(
-                all_point_outputs.contiguous(),
-                target_ids.contiguous().view(-1),
-                tokenizer.pad_token_id,
-            )
-            
-            # gating loss
-            loss_2 = loss_fnc_2(
-                all_gate_outputs.contiguous().view(-1, args.n_gate),
-                gating_ids.contiguous().view(-1),
-            )
-            loss = loss_1 + loss_2
-
-            loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            optimizer.step()
-            scheduler.step()
             optimizer.zero_grad()
+
+            loss = train_loop(args, model, batch, **train_loop_kwargs)
+            
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+            scaler.step(optimizer)
+            
+            scale = scaler.get_scale()
+            scaler.update()
+            step_scheduler = scaler.get_scale() == scale
+            
+            if step_scheduler:
+                scheduler.step()
 
             if step % 100 == 0:
                 print(
-                    f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()} gen: {loss_1.item()} gate: {loss_2.item()}"
+                    f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()}"
                 )
 
-        predictions = inference(model, dev_loader, processor, device)
+        predictions = inference_func(model, dev_loader, processor, device, args.use_amp)
         eval_result = _evaluation(predictions, dev_labels, slot_meta)
         for k, v in eval_result.items():
             print(f"{k}: {v}")

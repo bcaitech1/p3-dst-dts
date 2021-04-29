@@ -22,7 +22,7 @@ def postprocess_state(state):
     return state
 
 
-def inference(model, eval_loader, processor, device):
+def trade_inference(model, eval_loader, processor, device, use_amp=False):
     model.eval()
     predictions = {}
     for batch in tqdm(eval_loader, total=len(eval_loader)):
@@ -31,7 +31,8 @@ def inference(model, eval_loader, processor, device):
         ]
 
         with torch.no_grad():
-            o, g = model(input_ids, segment_ids, input_masks, 9)
+            with autocast(enabled=use_amp):
+                o, g = model(input_ids, segment_ids, input_masks, 9)
 
             _, generated_ids = o.max(-1)
             _, gated_ids = g.max(-1)
@@ -40,6 +41,27 @@ def inference(model, eval_loader, processor, device):
             prediction = processor.recover_state(gate, gen)
             prediction = postprocess_state(prediction)
             predictions[guid] = prediction
+    return predictions
+
+def sumbt_inference(model, eval_loader, processor, device, use_amp=False):
+    model.eval()
+    predictions = {}
+    
+    for step, batch in tqdm(enumerate(eval_loader), total=len(eval_loader)):
+        input_ids, segment_ids, input_masks, target_ids, num_turns, guids  = \
+            [b.to(device) if not isinstance(b, list) else b for b in batch]
+        
+        with torch.no_grad():
+            with autocast(enabled=use_amp):
+                output, pred_slot = model(input_ids, segment_ids, input_masks, None, 1)
+            
+        pred_slot = pred_slot.detach().cpu()
+        
+        for guid, num_turn, p_slot in zip(guids, num_turns, pred_slot):
+            pred_states = processor.recover_state(p_slot, num_turn)
+            for t_idx, pred_state in enumerate(pred_states):
+                predictions[f'{guid}-{t_idx}'] = pred_state
+    
     return predictions
 
 
@@ -91,7 +113,7 @@ if __name__ == "__main__":
     model.to(device)
     print("Model is loaded")
 
-    predictions = inference(model, eval_loader, processor, device)
+    predictions = trade_inference(model, eval_loader, processor, device)
     
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
