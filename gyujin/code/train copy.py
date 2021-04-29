@@ -2,23 +2,20 @@ import argparse
 import json
 import os
 import random
-from attrdict import AttrDict
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
-from transformers import AdamW, AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AdamW, BertTokenizer, get_linear_schedule_with_warmup
 
-from data_utils import (WOSDataset, load_dataset,
-                        seed_everything)
+from data_utils import (WOSDataset, get_examples_from_dialogues, load_dataset,
+                        set_seed)
 from eval_utils import DSTEvaluator
 from evaluation import _evaluation
-# from inference import inference
+from inference import inference
 from model import TRADE, masked_cross_entropy_for_value
-# from preprocessor import TRADEPreprocessor
-
-from prepare_preprocessor import get_stuff, get_model
+from preprocessor import TRADEPreprocessor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -55,28 +52,36 @@ if __name__ == "__main__":
                         help="만약 지정되면 기존의 hidden_size는 embedding dimension으로 취급되고, proj_dim이 GRU의 hidden_size로 사용됨. hidden_size보다 작아야 함.", default=None)
     parser.add_argument("--teacher_forcing_ratio", type=float, default=0.5)
     args = parser.parse_args()
-
-    #### 추가 #####
-
-    args.preprocessor = 'TRADEPreprocessor'
-    args.model_class = 'TRADE'    
-
-    ###############
+    
+    # args.data_dir = os.environ['SM_CHANNEL_TRAIN']
+    # args.model_dir = os.environ['SM_MODEL_DIR']
 
     # random seed 고정
-    seed_everything(args.random_seed)
+    set_seed(args.random_seed)
 
     # Data Loading
     train_data_file = f"{args.data_dir}/train_dials.json"
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
     train_data, dev_data, dev_labels = load_dataset(train_data_file)
 
+    train_examples = get_examples_from_dialogues(
+        train_data, user_first=False, dialogue_level=False
+    )
+    dev_examples = get_examples_from_dialogues(
+        dev_data, user_first=False, dialogue_level=False
+    )
 
-    args.preprocessor = 'SUMBTPreprocessor'
+    # Define Preprocessor
+    tokenizer = BertTokenizer.from_pretrained(args.model_name_or_path)
+    processor = TRADEPreprocessor(slot_meta, tokenizer)
+    args.vocab_size = len(tokenizer)
+    args.n_gate = len(processor.gating2id) # gating 갯수 none, dontcare, ptr
 
-    tokenizer, processor, train_features, dev_features = get_stuff(args,
-                 train_data, dev_data, slot_meta, ontology)
+    # Extracting Featrues
+    print('Converting examples to features')
+    train_features = processor.convert_examples_to_features(train_examples)
+    dev_features = processor.convert_examples_to_features(dev_examples)
+    print('Done converting examples to features')
     
     # Slot Meta tokenizing for the decoder initial inputs
     tokenized_slot_meta = []
@@ -86,8 +91,11 @@ if __name__ == "__main__":
         )
     
     # Model 선언
-    model =  get_model(args, tokenizer, ontology)
+    model = TRADE(args, tokenized_slot_meta)
+    model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화
+    print(f"Subword Embeddings is loaded from {args.model_name_or_path}")
     model.to(device)
+    print("Model is initialized")
 
     train_data = WOSDataset(train_features)
     train_sampler = RandomSampler(train_data)
@@ -110,27 +118,16 @@ if __name__ == "__main__":
     print("# dev:", len(dev_data))
     
     # Optimizer 및 Scheduler 선언
-    ### 이 부분은 SUMBT에만 있던거
-    ### TODO: args.no_decay로 하면 어떨까?
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-
     n_epochs = args.num_train_epochs
     t_total = len(train_loader) * n_epochs
     warmup_steps = int(t_total * args.warmup_ratio)
-    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    optimizer = AdamW(model.parameters(), lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
     )
+
+    loss_fnc_1 = masked_cross_entropy_for_value  # generation
+    loss_fnc_2 = nn.CrossEntropyLoss()  # gating
 
     if not os.path.exists(args.model_dir):
         os.mkdir(args.model_dir)
@@ -147,9 +144,6 @@ if __name__ == "__main__":
         indent=2,
         ensure_ascii=False,
     )
-
-    loss_fnc_1 = masked_cross_entropy_for_value  # generation
-    loss_fnc_2 = nn.CrossEntropyLoss()  # gating
     
     best_score, best_checkpoint = 0, 0
     for epoch in tqdm(range(n_epochs)):
