@@ -1,4 +1,5 @@
 import torch
+from tqdm.auto import tqdm
 
 from data_utils import DSTPreprocessor, OpenVocabDSTFeature, convert_state_dict
 
@@ -23,17 +24,17 @@ class TRADEPreprocessor(DSTPreprocessor):
     def _convert_example_to_feature(self, example):
         dialogue_context = " [SEP] ".join(example.context_turns + example.current_turn)
 
-        input_id = self.src_tokenizer.encode(dialogue_context, add_special_tokens=False)
-#         max_length = self.max_seq_length - 2
-#         if len(input_id) > max_length:
-#             gap = len(input_id) - max_length
-#             input_id = input_id[gap:]
+        input_max_length = self.max_seq_length - 2
+        target_max_length = self.max_seq_length - 1
+        input_id = self.src_tokenizer.encode(dialogue_context, add_special_tokens=False,
+                truncation=True, max_length=input_max_length)
 
         input_id = (
             [self.src_tokenizer.cls_token_id]
             + input_id
             + [self.src_tokenizer.sep_token_id]
         )
+
         segment_id = [0] * len(input_id)
 
         target_ids = []
@@ -44,18 +45,18 @@ class TRADEPreprocessor(DSTPreprocessor):
         state = convert_state_dict(example.label)
         for slot in self.slot_meta:
             value = state.get(slot, "none")
-            target_id = self.trg_tokenizer.encode(value, add_special_tokens=False) + [
-                self.trg_tokenizer.sep_token_id
-            ]
+            target_id = self.trg_tokenizer.encode(value, add_special_tokens=False,
+                    truncation=True, max_length=target_max_length) + [self.trg_tokenizer.sep_token_id]
             target_ids.append(target_id)
             gating_id.append(self.gating2id.get(value, self.gating2id["ptr"]))
         target_ids = self.pad_ids(target_ids, self.trg_tokenizer.pad_token_id)
+        
         return OpenVocabDSTFeature(
             example.guid, input_id, segment_id, gating_id, target_ids
         )
 
     def convert_examples_to_features(self, examples):
-        return list(map(self._convert_example_to_feature, examples))
+        return list(map(self._convert_example_to_feature, tqdm(examples)))
 
     def recover_state(self, gate_list, gen_list):
         assert len(gate_list) == len(self.slot_meta)
