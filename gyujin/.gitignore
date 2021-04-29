@@ -154,4 +154,5 @@ Thumbs.db
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 .vscode/
-
+code/results/
+code/predictions/
