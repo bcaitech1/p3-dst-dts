@@ -10,10 +10,6 @@ from tqdm.auto import tqdm
 from data_utils import WOSDataset
 from prepare import get_model, get_stuff
 
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
 def postprocess_state(state):
     for i, s in enumerate(state):
         s = s.replace(" : ", ":")
@@ -65,6 +61,8 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False):
 
 
 if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default=None)
     parser.add_argument("--model_dir", type=str, default=None)
