@@ -25,7 +25,7 @@ from prepare import get_stuff, get_model
 
 
 if __name__ == "__main__":
-    with open('conf2.yml') as f:
+    with open('/opt/ml/project/team/code/conf2.yml') as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f"Currnet Using Model : {conf['ModelName'][0]}")
