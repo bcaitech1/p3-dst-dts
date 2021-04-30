@@ -18,6 +18,7 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
             ontology=ontology,
             max_turn_length=max_turn,
             max_seq_length=args.max_seq_length,
+            model_name_or_path=args.model_name_or_path,
         )
     else:
         raise NotImplementedError()
