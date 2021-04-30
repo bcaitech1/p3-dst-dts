@@ -2,10 +2,7 @@ from attrdict import AttrDict
 from importlib import import_module
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from transformers import AutoTokenizer
-
 from data_utils import get_examples_from_dialogues
 
 def get_stuff(args, train_data, dev_data, slot_meta, ontology):

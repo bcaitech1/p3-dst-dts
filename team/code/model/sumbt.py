@@ -1,15 +1,14 @@
 """
 Most of code is from https://github.com/SKTBrain/SUMBT
 """
-
 import math
 import os.path
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import CosineEmbeddingLoss, CrossEntropyLoss
-from transformers import AutoModel, AutoModelForPreTraining, AutoConfig
+from torch.nn import CrossEntropyLoss
+from transformers import AutoModelForPreTraining, AutoConfig
 
 class AutoForUtteranceEncoding(nn.Module):
     def __init__(self, config, model):

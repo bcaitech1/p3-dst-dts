@@ -6,12 +6,9 @@ import torch
 from torch.utils.data import DataLoader, SequentialSampler
 from torch.cuda.amp import autocast
 from tqdm.auto import tqdm
-from transformers import BertTokenizer
 
-from data_utils import (WOSDataset, get_examples_from_dialogues)
-from model import TRADE
-from preprocessor import TRADEPreprocessor
-from prepare_preprocessor import get_model, get_stuff
+from data_utils import WOSDataset
+from prepare import get_model, get_stuff
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -74,10 +71,6 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--eval_batch_size", type=int, default=32)
     args = parser.parse_args()
-    
-#     args.preprocessor = 'TRADEPreprocessor'
-#     args.model_class = 'TRADE'    
-    args.use_amp = True
     
     model_dir_path = os.path.dirname(args.model_dir)
     eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
