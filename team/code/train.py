@@ -112,8 +112,9 @@ if __name__ == "__main__":
     if not os.path.exists(args.model_dir):
         os.mkdir(args.model_dir)
 
+    args_save = {k:v for k, v in vars(args).items() if k != 'device'}
     json.dump(
-        vars(args),
+        args_save,
         open(f"{args.model_dir}/exp_config.json", "w"),
         indent=2,
         ensure_ascii=False,
