@@ -28,60 +28,19 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="/opt/ml/input/data/train_dataset")
-    parser.add_argument("--model_dir", type=str, default="/opt/ml/results")
-    parser.add_argument("--train_batch_size", type=int, default=16)
-    parser.add_argument("--eval_batch_size", type=int, default=32)
-    parser.add_argument("--learning_rate", type=float, default=1e-4)
-    parser.add_argument("--adam_epsilon", type=float, default=1e-8)
-    parser.add_argument("--max_grad_norm", type=float, default=1.0)
-    parser.add_argument("--num_train_epochs", type=int, default=30)
-    parser.add_argument("--warmup_ratio", type=int, default=0.1)
-    parser.add_argument("--random_seed", type=int, default=42)
-    parser.add_argument(
-        "--model_name_or_path",
-        type=str,
-        help="Subword Vocab만을 위한 huggingface model",
-        default="monologg/koelectra-base-v3-discriminator",
-    )
+    with open('conf.yml') as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
 
-    # Model Specific Argument
-    parser.add_argument("--hidden_size", type=int, help="GRU의 hidden size", default=768)
-    parser.add_argument(
-        "--vocab_size",
-        type=int,
-        help="vocab size, subword vocab tokenizer에 의해 특정된다",
-        default=None,
-    )
-    parser.add_argument("--hidden_dropout_prob", type=float, default=0.1)
-    parser.add_argument("--proj_dim", type=int,
-                        help="만약 지정되면 기존의 hidden_size는 embedding dimension으로 취급되고, proj_dim이 GRU의 hidden_size로 사용됨. hidden_size보다 작아야 함.", default=None)
-    parser.add_argument("--teacher_forcing_ratio", type=float, default=0.5)
-    args = parser.parse_args()
+    print(f"Currnet Using Model : {conf['ModelName'][0]}")
 
-    #### 추가 #####
+    if conf['ModelName'] == 'TRADE':
+        print("get_args_TRADE")
+        args = argparse.Namespace(**conf['TRADE'])
 
-    # args.preprocessor = 'SUMBTPreprocessor'
-    # args.model_class = 'SUMBT'
-    args.preprocessor = 'TRADEPreprocessor'
-    args.model_class = 'TRADE'    
-    args.use_amp = True
-    args.weight_decay = 0
-    # args.hidden_dim = 300
-    # args.learning_rate = 5e-5
-    # args.num_rnn_layers = 1
-    # args.zero_init_rnn = False
-    # args.max_seq_length = 64
-    # args.max_label_length = 12
-    # args.attn_head = 4
-    # args.fix_utterance_encoder = False
-    # args.distance_metric = 'euclidean'
-    # args.model_name_or_path = 'dsksd/bert-ko-small-minimal'
-    # args.warmup_ratio = 0.1
-    args.num_train_epochs = 2
-    # args.train_batch_size = 8
-    # args.eval_batch_size = 8
+    if conf['ModelName'] == 'SUMBT':
+        print("get_args_SUMBT")
+        args = argparse.Namespace(**conf['SUMBT'])
+    print(args)
 
     ###############
 
