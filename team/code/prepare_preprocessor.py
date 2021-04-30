@@ -64,6 +64,8 @@ def tokenize_ontology(ontology, tokenizer, max_seq_length):
         if len(tokens) < max_seq_length:
             gap = max_seq_length - len(tokens)
             tokens.extend([tokenizer.pad_token_id] * gap)
+        if len(tokens) > max_seq_length:
+            tokens = tokens[:max_seq_length]
         slot_types.append(tokens)
         slot_value = []
         for vv in v:
@@ -71,6 +73,8 @@ def tokenize_ontology(ontology, tokenizer, max_seq_length):
             if len(tokens) < max_seq_length:
                 gap = max_seq_length - len(tokens)
                 tokens.extend([tokenizer.pad_token_id] * gap)
+            if len(tokens) > max_seq_length:
+                tokens = tokens[:max_seq_length]
             slot_value.append(tokens)
         slot_values.append(torch.LongTensor(slot_value))
     return torch.LongTensor(slot_types), slot_values
