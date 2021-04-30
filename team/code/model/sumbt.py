@@ -178,7 +178,7 @@ class SUMBT(nn.Module):
         hid_slot = hid_slot.detach()
     
         self.slot_lookup = nn.Embedding.from_pretrained(hid_slot, freeze=True)
-        assert self.slot_lookup.weight.shape == (self.num_slots, self.bert_output_dim)
+        assert self.slot_lookup.weight.shape == (self.num_slots, self.bert_output_dim), f'{self.slot_lookup.weight.shape} {(self.num_slots, self.bert_output_dim)}'
 
         for s, label_id in enumerate(label_ids):
             label_type_ids = torch.zeros(label_id.size(), dtype=torch.long).to(
@@ -194,7 +194,7 @@ class SUMBT(nn.Module):
             hid_label = hid_label.detach()
             self.value_lookup[s] = nn.Embedding.from_pretrained(hid_label, freeze=True)
             self.value_lookup[s].padding_idx = -1
-            assert self.value_lookup[s].weight.shape == (label_id.size(0), self.bert_output_dim)
+            assert self.value_lookup[s].weight.shape == (label_id.size(0), self.bert_output_dim), f'{self.value_lookup[s].weight.shape} {(label_id.size(0), self.bert_output_dim)}'
 
         print("Complete initialization of slot and value lookup")
         self.sv_encoder = None

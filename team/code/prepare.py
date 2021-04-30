@@ -89,7 +89,7 @@ def get_model(args, tokenizer, ontology, slot_meta):
             tokenized_slot_meta=tokenized_slot_meta,
         )
     elif args.model_class == 'SUMBT':
-        slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, 12)
+        slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)
         num_labels = [len(s) for s in slot_values_ids]
 
         model_kwargs = AttrDict(
