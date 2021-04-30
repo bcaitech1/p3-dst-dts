@@ -4,11 +4,10 @@ import random
 from torch.cuda.amp import autocast
 from model import masked_cross_entropy_for_value
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def trade_train_loop(args, model, batch, pad_token_id=0,
         loss_fnc_1=masked_cross_entropy_for_value, loss_fnc_2=nn.CrossEntropyLoss()):
     input_ids, segment_ids, input_masks, gating_ids, target_ids, guids = [
-        b.to(device) if not isinstance(b, list) else b for b in batch
+        b.to(args.device) if not isinstance(b, list) else b for b in batch
     ]
 
     # teacher forcing
@@ -43,7 +42,7 @@ def trade_train_loop(args, model, batch, pad_token_id=0,
 
 def submt_train_loop(args, model, batch):
     input_ids, segment_ids, input_masks, target_ids, num_turns, guids  = \
-        [b.to(device) if not isinstance(b, list) else b for b in batch]
+        [b.to(args.device) if not isinstance(b, list) else b for b in batch]
 
     # Forward
     with autocast(enabled=args.use_amp):

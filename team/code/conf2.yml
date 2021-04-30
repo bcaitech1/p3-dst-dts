@@ -26,6 +26,7 @@ SUMBT:
     distance_metric: euclidean
     preprocessor: SUMBTPreprocessor
     model_class: SUMBT
+    device_pref: cpu
 
 TRADE:
     hidden_size: 768
@@ -50,3 +51,4 @@ TRADE:
     n_gate: 3
     preprocessor: TRADEPreprocessor
     model_class: TRADE
+    device_pref: cuda

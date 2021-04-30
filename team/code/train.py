@@ -25,11 +25,11 @@ from inference import trade_inference, sumbt_inference
 
 from prepare_preprocessor import get_stuff, get_model
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 
 if __name__ == "__main__":
-    with open('conf.yml') as f:
+    with open('conf2.yml') as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f"Currnet Using Model : {conf['ModelName'][0]}")
@@ -44,6 +44,8 @@ if __name__ == "__main__":
     print(args)
 
     ###############
+
+    args.device = torch.device(args.device_pref if torch.cuda.is_available() else "cpu")
 
     # random seed 고정
     seed_everything(args.random_seed)
@@ -66,7 +68,7 @@ if __name__ == "__main__":
     
     # Model 선언
     model =  get_model(args, tokenizer, ontology, slot_meta)
-    model.to(device)
+    model.to(args.device)
 
     train_data = WOSDataset(train_features)
     train_sampler = RandomSampler(train_data)
@@ -171,7 +173,7 @@ if __name__ == "__main__":
                     f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()}"
             )   
 
-        predictions = inference_func(model, dev_loader, processor, device, args.use_amp)
+        predictions = inference_func(model, dev_loader, processor, args.device, args.use_amp)
         eval_result = _evaluation(predictions, dev_labels, slot_meta)
         for k, v in eval_result.items():
             print(f"{k}: {v}")

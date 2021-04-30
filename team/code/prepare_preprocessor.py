@@ -93,11 +93,10 @@ def get_model(args, tokenizer, ontology, slot_meta):
     elif args.model_class == 'SUMBT':
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, 12)
         num_labels = [len(s) for s in slot_values_ids]
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         model_kwargs = AttrDict(
             num_labels=num_labels,
-            device=device,
+            device=args.device,
         )
     else:
         raise NotImplementedError()
