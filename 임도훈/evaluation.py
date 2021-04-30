@@ -13,15 +13,17 @@ def _evaluation(preds, labels, slot_meta):
     assert len(preds) == len(labels)
     
     wrong_list=[]
+    correct_list=[]
     for k, l in labels.items():
         p = preds.get(k)
         if p is None:
             raise Exception(f"{k} is not in the predictions!")
         evaluator.update(l, p)
         wrong_list.extend(set(l)-set(p))
+        correct_list.extend(set(l))
     result = evaluator.compute()
     print(result)
-    return result,wrong_list
+    return result,wrong_list,correct_list
 
 
 def evaluation(gt_path, pred_path):
