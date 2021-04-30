@@ -2,27 +2,20 @@ import argparse
 import json
 import os
 import random
-from attrdict import AttrDict
 
 import torch
 import torch.nn as nn
-from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
-from transformers import AdamW, AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AdamW, BertTokenizer, get_linear_schedule_with_warmup
 
-from data_utils import (WOSDataset, load_dataset,
-                        seed_everything)
+from data_utils import (WOSDataset, get_examples_from_dialogues, load_dataset,
+                        set_seed)
 from eval_utils import DSTEvaluator
 from evaluation import _evaluation
-# from inference import inference
-from model import TRADE, masked_cross_entropy_for_value
-# from preprocessor import TRADEPreprocessor
-
-from train_loop import trade_train_loop, submt_train_loop
-from inference import trade_inference, sumbt_inference 
-
-from prepare_preprocessor import get_stuff, get_model
+from inference_copy import inference
+from model_copy import TRADE, masked_cross_entropy_for_value
+from preprocessor import TRADEPreprocessor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -59,43 +52,36 @@ if __name__ == "__main__":
                         help="만약 지정되면 기존의 hidden_size는 embedding dimension으로 취급되고, proj_dim이 GRU의 hidden_size로 사용됨. hidden_size보다 작아야 함.", default=None)
     parser.add_argument("--teacher_forcing_ratio", type=float, default=0.5)
     args = parser.parse_args()
-
-    #### 추가 #####
-
-    # args.preprocessor = 'SUMBTPreprocessor'
-    # args.model_class = 'SUMBT'
-    args.preprocessor = 'TRADEPreprocessor'
-    args.model_class = 'TRADE'    
-    args.use_amp = True
-    args.weight_decay = 0
-    # args.hidden_dim = 300
-    # args.learning_rate = 5e-5
-    # args.num_rnn_layers = 1
-    # args.zero_init_rnn = False
-    # args.max_seq_length = 64
-    # args.max_label_length = 12
-    # args.attn_head = 4
-    # args.fix_utterance_encoder = False
-    # args.distance_metric = 'euclidean'
-    # args.model_name_or_path = 'dsksd/bert-ko-small-minimal'
-    # args.warmup_ratio = 0.1
-    args.num_train_epochs = 2
-    # args.train_batch_size = 8
-    # args.eval_batch_size = 8
-
-    ###############
+    
+    # args.data_dir = os.environ['SM_CHANNEL_TRAIN']
+    # args.model_dir = os.environ['SM_MODEL_DIR']
 
     # random seed 고정
-    seed_everything(args.random_seed)
+    set_seed(args.random_seed)
 
     # Data Loading
     train_data_file = f"{args.data_dir}/train_dials.json"
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
     train_data, dev_data, dev_labels = load_dataset(train_data_file)
 
-    tokenizer, processor, train_features, dev_features = get_stuff(args,
-                 train_data, dev_data, slot_meta, ontology)
+    train_examples = get_examples_from_dialogues(
+        train_data, user_first=False, dialogue_level=False
+    )
+    dev_examples = get_examples_from_dialogues(
+        dev_data, user_first=False, dialogue_level=False
+    )
+
+    # Define Preprocessor
+    tokenizer = BertTokenizer.from_pretrained(args.model_name_or_path)
+    processor = TRADEPreprocessor(slot_meta, tokenizer)
+    args.vocab_size = len(tokenizer)
+    args.n_gate = len(processor.gating2id) # gating 갯수 none, dontcare, ptr
+
+    # Extracting Featrues
+    print('Converting examples to features')
+    train_features = processor.convert_examples_to_features(train_examples)
+    dev_features = processor.convert_examples_to_features(dev_examples)
+    print('Done converting examples to features')
     
     # Slot Meta tokenizing for the decoder initial inputs
     tokenized_slot_meta = []
@@ -105,8 +91,11 @@ if __name__ == "__main__":
         )
     
     # Model 선언
-    model =  get_model(args, tokenizer, ontology, slot_meta)
+    model = TRADE(args, tokenized_slot_meta)
+    model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화
+    print(f"Subword Embeddings is loaded from {args.model_name_or_path}")
     model.to(device)
+    print("Model is initialized")
 
     train_data = WOSDataset(train_features)
     train_sampler = RandomSampler(train_data)
@@ -129,27 +118,16 @@ if __name__ == "__main__":
     print("# dev:", len(dev_data))
     
     # Optimizer 및 Scheduler 선언
-    ### 이 부분은 SUMBT에만 있던거
-    ### TODO: args.no_decay로 하면 어떨까?
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-
     n_epochs = args.num_train_epochs
     t_total = len(train_loader) * n_epochs
     warmup_steps = int(t_total * args.warmup_ratio)
-    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    optimizer = AdamW(model.parameters(), lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
     )
+
+    loss_fnc_1 = masked_cross_entropy_for_value  # generation
+    loss_fnc_2 = nn.CrossEntropyLoss()  # gating
 
     if not os.path.exists(args.model_dir):
         os.mkdir(args.model_dir)
@@ -166,52 +144,54 @@ if __name__ == "__main__":
         indent=2,
         ensure_ascii=False,
     )
-
-    json.dump(
-        ontology,
-        open(f"{args.model_dir}/ontology.json", "w"),
-        indent=2,
-        ensure_ascii=False,
-    )
-
-    if args.model_class == 'TRADE':
-        train_loop = trade_train_loop
-        train_loop_kwargs = AttrDict(pad_token_id=tokenizer.pad_token_id)
-        inference_func = trade_inference
-    elif args.model_class == 'SUMBT':
-        train_loop = submt_train_loop
-        train_loop_kwargs = AttrDict()
-        inference_func = sumbt_inference
-    else:
-        raise NotImplementedError()
     
-    scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
     for epoch in tqdm(range(n_epochs)):
         model.train()
         for step, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
-            optimizer.zero_grad()
+            input_ids, segment_ids, input_masks, gating_ids, target_ids, guids = [
+                b.to(device) if not isinstance(b, list) else b for b in batch
+            ]
+            
+            # teacher forcing
+            if (
+                args.teacher_forcing_ratio > 0.0
+                and random.random() < args.teacher_forcing_ratio
+            ):
+                tf = target_ids
+            else:
+                tf = None
 
-            loss = train_loop(args, model, batch, **train_loop_kwargs)
+            all_point_outputs, all_gate_outputs = model(
+                input_ids, segment_ids, input_masks, target_ids.size(-1), tf
+            )
             
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
+            # generation loss
+            loss_1 = loss_fnc_1(
+                all_point_outputs.contiguous(),
+                target_ids.contiguous().view(-1),
+                tokenizer.pad_token_id,
+            )
+            
+            # gating loss
+            loss_2 = loss_fnc_2(
+                all_gate_outputs.contiguous().view(-1, args.n_gate),
+                gating_ids.contiguous().view(-1),
+            )
+            loss = loss_1 + loss_2
+
+            loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            scaler.step(optimizer)
-            
-            scale = scaler.get_scale()
-            scaler.update()
-            step_scheduler = scaler.get_scale() == scale
-            
-            if step_scheduler:
-                scheduler.step()
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
 
             if step % 100 == 0:
                 print(
-                    f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()}"
-            )   
+                    f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()} gen: {loss_1.item()} gate: {loss_2.item()}"
+                )
 
-        predictions = inference_func(model, dev_loader, processor, device, args.use_amp)
+        predictions = inference(model, dev_loader, processor, device)
         eval_result = _evaluation(predictions, dev_labels, slot_meta)
         for k, v in eval_result.items():
             print(f"{k}: {v}")
