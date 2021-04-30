@@ -19,7 +19,8 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
         max_turn = max([len(e['dialogue']) for e in train_data])
         processor_kwargs = AttrDict(
             ontology=ontology,
-            max_turn_length=max_turn
+            max_turn_length=max_turn,
+            max_seq_length=args.max_seq_length,
         )
     else:
         raise NotImplementedError()

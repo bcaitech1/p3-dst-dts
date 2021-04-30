@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import random
+import yaml
 from attrdict import AttrDict
 
 import torch
