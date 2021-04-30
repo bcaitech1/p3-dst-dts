@@ -1,6 +1,7 @@
-from transformers import BertTokenizer
 from data_utils import get_examples_from_dialogues, convert_state_dict, load_dataset
 from data_utils import OntologyDSTFeature, DSTPreprocessor, _truncate_seq_pair
+from tqdm.auto import tqdm
+import torch
 
 class SUMBTPreprocessor(DSTPreprocessor):
     def __init__(
@@ -55,10 +56,10 @@ class SUMBTPreprocessor(DSTPreprocessor):
             for slot_type in self.slot_meta:
                 value = slot_dict.get(slot_type, "none")
                 
-                if value in ontology[slot_type]:
-                    label_idx = ontology[slot_type].index(value)
+                if value in self.ontology[slot_type]:
+                    label_idx = self.ontology[slot_type].index(value)
                 else:
-                    label_idx = ontology[slot_type].index('none')
+                    label_idx = self.ontology[slot_type].index('none')
                
                 label.append(label_idx)
             labels.append(label)

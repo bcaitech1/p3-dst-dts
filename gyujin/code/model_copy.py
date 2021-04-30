@@ -12,7 +12,6 @@ def masked_cross_entropy_for_value(logits, target, pad_idx=0):
     target_flat = target.view(-1, 1)
     losses_flat = -torch.gather(log_probs_flat, dim=1, index=target_flat)
     losses = losses_flat.view(*target.size())
-
     losses = losses * mask.float()
     loss = losses.sum() / (mask.sum().float())
     return loss
@@ -172,7 +171,7 @@ class SlotGenerator(nn.Module):
 
             # B,T,D * B,D,1 => B,T
             attn_e = torch.bmm(encoder_output, hidden.permute(1, 2, 0))  # B,T,1
-            attn_e = attn_e.squeeze(-1).masked_fill(input_masks, -10000.0)
+            attn_e = attn_e.squeeze(-1).masked_fill(input_masks, -1e9)
             attn_history = F.softmax(attn_e, -1)  # B,T
 
             if self.proj_layer:

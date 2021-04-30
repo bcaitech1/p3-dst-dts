@@ -1,6 +1,7 @@
 from attrdict import AttrDict
 from importlib import import_module
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoTokenizer
@@ -26,9 +27,11 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     train_examples = get_examples_from_dialogues(
         train_data, user_first=user_first, dialogue_level=dialogue_level
     )
-    dev_examples = get_examples_from_dialogues(
-        dev_data, user_first=user_first, dialogue_level=dialogue_level
-    )
+
+    if dev_data is not None:
+        dev_examples = get_examples_from_dialogues(
+            dev_data, user_first=user_first, dialogue_level=dialogue_level
+        )
 
     # Define Preprocessor
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
@@ -43,7 +46,10 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     # Extracting Featrues
     print('Converting examples to features')
     train_features = processor.convert_examples_to_features(train_examples)
-    dev_features = processor.convert_examples_to_features(dev_examples)
+    if dev_data is not None:
+        dev_features = processor.convert_examples_to_features(dev_examples)
+    else:
+        dev_features = None
     print('Done converting examples to features')
     
     return tokenizer, processor, train_features, dev_features
@@ -68,7 +74,7 @@ def tokenize_ontology(ontology, tokenizer, max_seq_length):
         slot_values.append(torch.LongTensor(slot_value))
     return torch.LongTensor(slot_types), slot_values
 
-def get_model(args, tokenizer, ontology):
+def get_model(args, tokenizer, ontology, slot_meta):
     if args.model_class == 'TRADE':
         tokenized_slot_meta = []
         for slot in slot_meta:

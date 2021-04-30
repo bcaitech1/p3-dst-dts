@@ -6,6 +6,7 @@ from attrdict import AttrDict
 
 import torch
 import torch.nn as nn
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
 from transformers import AdamW, AutoTokenizer, get_linear_schedule_with_warmup
@@ -61,9 +62,26 @@ if __name__ == "__main__":
 
     #### 추가 #####
 
+    # args.preprocessor = 'SUMBTPreprocessor'
+    # args.model_class = 'SUMBT'
     args.preprocessor = 'TRADEPreprocessor'
     args.model_class = 'TRADE'    
     args.use_amp = True
+    args.weight_decay = 0
+    # args.hidden_dim = 300
+    # args.learning_rate = 5e-5
+    # args.num_rnn_layers = 1
+    # args.zero_init_rnn = False
+    # args.max_seq_length = 64
+    # args.max_label_length = 12
+    # args.attn_head = 4
+    # args.fix_utterance_encoder = False
+    # args.distance_metric = 'euclidean'
+    # args.model_name_or_path = 'dsksd/bert-ko-small-minimal'
+    # args.warmup_ratio = 0.1
+    args.num_train_epochs = 2
+    # args.train_batch_size = 8
+    # args.eval_batch_size = 8
 
     ###############
 
@@ -87,7 +105,7 @@ if __name__ == "__main__":
         )
     
     # Model 선언
-    model =  get_model(args, tokenizer, ontology)
+    model =  get_model(args, tokenizer, ontology, slot_meta)
     model.to(device)
 
     train_data = WOSDataset(train_features)
@@ -149,6 +167,13 @@ if __name__ == "__main__":
         ensure_ascii=False,
     )
 
+    json.dump(
+        ontology,
+        open(f"{args.model_dir}/ontology.json", "w"),
+        indent=2,
+        ensure_ascii=False,
+    )
+
     if args.model_class == 'TRADE':
         train_loop = trade_train_loop
         train_loop_kwargs = AttrDict(pad_token_id=tokenizer.pad_token_id)
@@ -184,7 +209,7 @@ if __name__ == "__main__":
             if step % 100 == 0:
                 print(
                     f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()}"
-                )
+            )   
 
         predictions = inference_func(model, dev_loader, processor, device, args.use_amp)
         eval_result = _evaluation(predictions, dev_labels, slot_meta)

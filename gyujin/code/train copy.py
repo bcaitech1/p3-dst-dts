@@ -13,8 +13,8 @@ from data_utils import (WOSDataset, get_examples_from_dialogues, load_dataset,
                         set_seed)
 from eval_utils import DSTEvaluator
 from evaluation import _evaluation
-from inference import inference
-from model import TRADE, masked_cross_entropy_for_value
+from inference_copy import inference
+from model_copy import TRADE, masked_cross_entropy_for_value
 from preprocessor import TRADEPreprocessor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
