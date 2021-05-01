@@ -25,10 +25,14 @@ SUMBT:
     task_name: sumbtgru
     distance_metric: euclidean
     preprocessor: SUMBTPreprocessor
-    model_class: SUMBT_Custom2
+    model_class: SUMBT
     device_pref: cuda
 
-    n_transformers: 2
+    use_larger_slot_encoding: True  # True -> [max_label_length, emb_dim]만큼 slot_emb에 사용
+                                    #    nlp 전체 출력 사용
+                                    # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
+    use_transformer: True # True -> transformer, False -> gru
+    n_transformers: 2 # transfomer block 몇개 중첩으로 사용할건지
 
 TRADE:
     hidden_size: 768

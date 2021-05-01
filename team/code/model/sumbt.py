@@ -10,6 +10,9 @@ import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 from transformers import AutoModelForPreTraining, AutoConfig
 
+# https://github.com/CyberZHG/torch-position-embedding
+from torch_position_embedding import PositionEmbedding 
+
 class AutoForUtteranceEncoding(nn.Module):
     def __init__(self, config, model):
         super().__init__()
@@ -89,10 +92,34 @@ class MultiHeadAttention(nn.Module):
     def get_scores(self):
         return self.scores
 
+class Transformer(nn.Module):
+    def __init__(self, attn_head, output_dim, dropout=0.1):
+        super().__init__()
+        self.attn = MultiHeadAttention(attn_head, output_dim, dropout)
+        self.layer_norm1 = nn.LayerNorm(output_dim)
+        self.layer_norm2 = nn.LayerNorm(output_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.ffwd = nn.Sequential(
+            nn.Linear(output_dim, output_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(output_dim, output_dim),
+        )
+
+    def forward(self, x, mask):
+        tmp = self.layer_norm1(x)
+        sub_layer = self.attn(tmp, tmp, tmp, mask)
+        x = x + self.dropout(sub_layer)
+
+        tmp = self.layer_norm2(x)
+        sub_layer = self.ffwd(tmp)
+        x = x + self.dropout(sub_layer)
+
+        return x
 
 class SUMBT(nn.Module):
     def __init__(self, args, num_labels, device):
-        super(SUMBT, self).__init__()
+        super().__init__()
 
         self.hidden_dim = args.hidden_dim
         self.rnn_num_layers = args.num_rnn_layers
@@ -102,6 +129,8 @@ class SUMBT(nn.Module):
         self.num_labels = num_labels
         self.num_slots = len(num_labels)
         self.attn_head = args.attn_head
+        self.use_larger_slot_encoding = args.use_larger_slot_encoding
+        self.use_transformer = args.use_transformer
         self.device = device
 
         ### Utterance Encoder
@@ -109,7 +138,11 @@ class SUMBT(nn.Module):
             args.model_name_or_path
         )
         self.bert_output_dim = self.utterance_encoder.config.hidden_size
-        self.hidden_dropout_prob = self.utterance_encoder.config.hidden_dropout_prob
+        try:
+            self.hidden_dropout_prob = self.utterance_encoder.config.hidden_dropout_prob
+        except AttributeError:
+            self.hidden_dropout_prob = 0.1
+
         if args.fix_utterance_encoder:
             for p in self.utterance_encoder.base.pooler.parameters():
                 p.requires_grad = False
@@ -122,33 +155,46 @@ class SUMBT(nn.Module):
         for p in self.sv_encoder.base.parameters():
             p.requires_grad = False
 
-        self.slot_lookup = nn.Embedding(self.num_slots, self.bert_output_dim)
+        if self.use_larger_slot_encoding:
+            self.slot_lookup = nn.Embedding(self.num_slots, self.bert_output_dim*self.max_label_length)
+            self.slot_pooler = nn.Linear(self.max_label_length * self.bert_output_dim, self.bert_output_dim)
+        else:
+            self.slot_lookup = nn.Embedding(self.num_slots, self.bert_output_dim)
+
         self.value_lookup = nn.ModuleList(
             [nn.Embedding(num_label, self.bert_output_dim) for num_label in num_labels]
         )
 
         ### Attention layer
         self.attn = MultiHeadAttention(self.attn_head, self.bert_output_dim, dropout=0)
+        
+        if self.use_transformer:
+            self.transformers = nn.ModuleList(
+                [Transformer(self.attn_head, self.bert_output_dim, dropout=0) for _ in range(args.n_transformers)]
+            )
 
-        ### RNN Belief Tracker
-        self.nbt = nn.GRU(
+            self.position_emb = PositionEmbedding(num_embeddings=50,
+                embedding_dim=self.bert_output_dim,
+                mode=PositionEmbedding.MODE_ADD)
+        else:
+            self.nbt = nn.GRU(
             input_size=self.bert_output_dim,
             hidden_size=self.hidden_dim,
             num_layers=self.rnn_num_layers,
             dropout=self.hidden_dropout_prob,
             batch_first=True,
-        )
-        self.init_parameter(self.nbt)
-
-        if not self.zero_init_rnn:
-            self.rnn_init_linear = nn.Sequential(
-                nn.Linear(self.bert_output_dim, self.hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(self.hidden_dropout_prob),
             )
+            self.init_parameter(self.nbt)
 
-        self.linear = nn.Linear(self.hidden_dim, self.bert_output_dim)
-        self.layer_norm = nn.LayerNorm(self.bert_output_dim)
+            if not self.zero_init_rnn:
+                self.rnn_init_linear = nn.Sequential(
+                    nn.Linear(self.bert_output_dim, self.hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(self.hidden_dropout_prob),
+                )
+
+            self.linear = nn.Linear(self.hidden_dim, self.bert_output_dim)
+            self.layer_norm = nn.LayerNorm(self.bert_output_dim)
 
         ### Measure
         self.metric = torch.nn.PairwiseDistance(p=2.0, eps=1e-06, keepdim=False)
@@ -160,7 +206,6 @@ class SUMBT(nn.Module):
         self.dropout = nn.Dropout(self.hidden_dropout_prob)
 
     def initialize_slot_value_lookup(self, label_ids, slot_ids):
-
         self.sv_encoder.eval()
 
         # Slot encoding
@@ -174,11 +219,16 @@ class SUMBT(nn.Module):
             slot_mask.view(-1, self.max_label_length),
         ).hidden_states[-1]
         
-        hid_slot = hid_slot[:, 0, :]
+        if self.use_larger_slot_encoding:
+            hid_slot = hid_slot.masked_fill(slot_mask.unsqueeze(-1) == False, 0)
+            hid_slot = hid_slot.view(self.num_slots, -1)
+        else:
+            hid_slot = hid_slot[:, 0, :]
         hid_slot = hid_slot.detach()
     
+        old = self.slot_lookup
         self.slot_lookup = nn.Embedding.from_pretrained(hid_slot, freeze=True)
-        assert self.slot_lookup.weight.shape == (self.num_slots, self.bert_output_dim), f'{self.slot_lookup.weight.shape} {(self.num_slots, self.bert_output_dim)}'
+        assert self.slot_lookup.weight.shape == old.weight.shape, f'{self.slot_lookup.weight.shape} {old.weight.shape}'
 
         for s, label_id in enumerate(label_ids):
             label_type_ids = torch.zeros(label_id.size(), dtype=torch.long).to(
@@ -192,9 +242,11 @@ class SUMBT(nn.Module):
             ).hidden_states[-1]
             hid_label = hid_label[:, 0, :]
             hid_label = hid_label.detach()
+
+            old = self.value_lookup[s]
             self.value_lookup[s] = nn.Embedding.from_pretrained(hid_label, freeze=True)
             self.value_lookup[s].padding_idx = -1
-            assert self.value_lookup[s].weight.shape == (label_id.size(0), self.bert_output_dim), f'{self.value_lookup[s].weight.shape} {(label_id.size(0), self.bert_output_dim)}'
+            assert self.value_lookup[s].weight.shape == old.weight.shape, f'{self.value_lookup[s].weight.shape} {old.weight.shape}'
 
         print("Complete initialization of slot and value lookup")
         self.sv_encoder = None
@@ -205,7 +257,6 @@ class SUMBT(nn.Module):
         token_type_ids,
         attention_mask,
         labels=None,
-        n_gpu=1,
         target_slot=None,
     ):
         # B = Batch Size
@@ -213,6 +264,7 @@ class SUMBT(nn.Module):
         # N = Seq Len
         # J = Target_slot Len
         # H_GRU = RNN Hidden Dim
+        # L = Label Len
         
         # input_ids: [B, M, N]
         # token_type_ids: [B, M, N]
@@ -245,44 +297,63 @@ class SUMBT(nn.Module):
 
         hid_slot = self.slot_lookup.weight[
             target_slot, :
-        ]  # Select target slot embedding # [J, H]
-        hid_slot = hid_slot.repeat(1, bs).view(bs * slot_dim, -1)  # [J*M*B, H]
+        ]  # Select target slot embedding
+        if self.use_larger_slot_encoding: # [J, H * L]
+            hid_slot = hid_slot.view(slot_dim, self.max_label_length, self.bert_output_dim) # [J, L, H]
+            hid_slot = hid_slot.repeat(1, bs, 1).view(bs * slot_dim, self.max_label_length, -1) # [J*M*B, L, H]
+        else: # [J, H]
+            hid_slot = hid_slot.repeat(1, bs).view(bs * slot_dim, -1)  # [J*M*B, H]
 
         # Attended utterance vector
         hidden = self.attn(
-            hid_slot,  # q^s  [J*M*B, H] => [J*M*B, 1, H]
+            hid_slot,  # q^s  [J*M*B, L, H]
             hidden,  # U [J*M*B, N, H]
             hidden,  # U [J*M*B, N, H]
             mask=attention_mask.view(-1, 1, self.max_seq_length).repeat(slot_dim, 1, 1),
-        ) # [J*M*B, 1, H] -> 1 = hid_slot_seq_len
-        hidden = hidden.squeeze()  # h [J*M*B, H] Aggregated Slot Context
+        ) # [J*M*B, L, H]
+
+        if self.use_larger_slot_encoding: # [J*M*B, H]
+            hidden = self.slot_pooler(hidden.view(-1, self.max_label_length * self.bert_output_dim))
+        else:
+            hidden = hidden.squeeze()  # h [J*M*B, H] Aggregated Slot Context
+
         hidden = hidden.view(slot_dim, ds, ts, -1).view(
             -1, ts, self.bert_output_dim
         )  # [J*B, M, H]
 
-        # NBT
-        if self.zero_init_rnn:
-            h = torch.zeros(
-                self.rnn_num_layers, input_ids.shape[0] * slot_dim, self.hidden_dim
-            ).to(
-                self.device
-            )  # [1, slot_dim*ds, hidden]
+        if self.use_transformer:
+            hidden = self.position_emb(hidden)
+
+            transformer_mask = torch.any(attention_mask, -1).repeat(slot_dim, 1).unsqueeze(1)
+            for transformer in self.transformers:
+                hidden = transformer(
+                    hidden,
+                    mask=transformer_mask # [J*B, 1, M]
+                ) # [J*B, M, H]
         else:
-            h = hidden[:, 0, :].unsqueeze(0).expand(self.rnn_num_layers, -1, -1) # 원래 repeat(self.rnn_num_layers, 1, 1) 이었는데 바꿈
-            h = self.rnn_init_linear(h)    # 왜냐면 1 dim은 언제나 사이즈 1이니까 expand 사용하는게 더 좋음(expand 메모리 복사 없음, repeat 복사됨)
+            # NBT
+            if self.zero_init_rnn:
+                h = torch.zeros(
+                    self.rnn_num_layers, input_ids.shape[0] * slot_dim, self.hidden_dim
+                ).to(
+                    self.device
+                )  # [1, slot_dim*ds, hidden]
+            else:
+                h = hidden[:, 0, :].unsqueeze(0).expand(self.rnn_num_layers, -1, -1) # 원래 repeat(self.rnn_num_layers, 1, 1) 이었는데 바꿈
+                h = self.rnn_init_linear(h)    # 왜냐면 1 dim은 언제나 사이즈 1이니까 expand 사용하는게 더 좋음(expand 메모리 복사 없음, repeat 복사됨)
 
-        if isinstance(self.nbt, nn.GRU):
-            rnn_out, _ = self.nbt(hidden, h)  # [J*B, M, H_GRU]
-        elif isinstance(self.nbt, nn.LSTM):
-            c = torch.zeros(
-                self.rnn_num_layers, input_ids.shape[0] * slot_dim, self.hidden_dim
-            ).to(
-                self.device
-            )  # [1, slot_dim*ds, hidden]
-            rnn_out, _ = self.nbt(hidden, (h, c))  # [slot_dim*ds, turn, hidden]
-        rnn_out = self.layer_norm(self.linear(self.dropout(rnn_out)))
+            if isinstance(self.nbt, nn.GRU):
+                rnn_out, _ = self.nbt(hidden, h)  # [J*B, M, H_GRU]
+            elif isinstance(self.nbt, nn.LSTM):
+                c = torch.zeros(
+                    self.rnn_num_layers, input_ids.shape[0] * slot_dim, self.hidden_dim
+                ).to(
+                    self.device
+                )  # [1, slot_dim*ds, hidden]
+                rnn_out, _ = self.nbt(hidden, (h, c))  # [slot_dim*ds, turn, hidden]
+            hidden = self.layer_norm(self.linear(self.dropout(rnn_out)))
 
-        hidden = rnn_out.view(slot_dim, ds, ts, -1)  # [J, B, M, H]  변경 전 # [J, B, M, H_G]
+        hidden = hidden.view(slot_dim, ds, ts, -1) # [J, B, M, H]
 
         # Label (slot-value) encoding
         loss = 0
@@ -332,23 +403,9 @@ class SUMBT(nn.Module):
             sum(torch.sum(accuracy, 1) / slot_dim).float()
             / torch.sum(labels[:, :, 0].view(-1) > -1, 0).float()
         )  # joint accuracy
-        
-#         acc2 = ( # 별 차이 없으니까 그냥 기존거 쓰자
-#             torch.sum(accuracy).float()
-#             / torch.sum(labels > -1).float()
-#         )  # joint accuracy
-#         assert acc == acc2, f'acc: {acc}  acc2: {acc2}'
 
-        if n_gpu == 1:
-            return loss, loss_slot, acc, acc_slot, pred_slot
-        else:
-            return (
-                loss.unsqueeze(0),
-                None,
-                acc.unsqueeze(0),
-                acc_slot.unsqueeze(0),
-                pred_slot.unsqueeze(0),
-            )
+        return loss, loss_slot, acc, acc_slot, pred_slot
+        
 
     @staticmethod
     def init_parameter(module):
