@@ -476,7 +476,7 @@ class SUMBT_Custom2(nn.Module):
             hidden,  # U [J*M*B, N, H]
             mask=attention_mask.view(-1, 1, self.max_seq_length).repeat(slot_dim, 1, 1),
         ) # [J*M*B, L, H]
-        hidden = self.slot_pooler(hidden.view(-1, self.max_seq_length * self.bert_output_dim))
+        hidden = self.slot_pooler(hidden.view(-1, self.max_label_length * self.bert_output_dim))
         # [J*M*B, H]
         hidden = hidden.view(slot_dim, ds, ts, -1).view(
             -1, ts, self.bert_output_dim
