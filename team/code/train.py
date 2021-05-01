@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
-from transformers import AdamW, get_linear_schedule_with_warmup
+from transformers import AdamW, get_linear_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 
 from data_utils import (WOSDataset, load_dataset,
                         seed_everything)
@@ -37,6 +37,7 @@ if __name__ == "__main__":
     if conf['ModelName'] == 'SUMBT':
         print("get_args_SUMBT")
         args = argparse.Namespace(**conf['SUMBT'])
+    args.ModelName = conf['ModelName']
     print(args)
 
     ###############
@@ -133,11 +134,11 @@ if __name__ == "__main__":
         ensure_ascii=False,
     )
 
-    if args.model_class == 'TRADE':
+    if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
         train_loop_kwargs = AttrDict(pad_token_id=tokenizer.pad_token_id)
         inference_func = trade_inference
-    elif args.model_class == 'SUMBT':
+    elif args.ModelName == 'SUMBT':
         train_loop = submt_train_loop
         train_loop_kwargs = AttrDict()
         inference_func = sumbt_inference
@@ -165,7 +166,7 @@ if __name__ == "__main__":
             if step_scheduler:
                 scheduler.step()
 
-            if step % 100 == 0:
+            if step % 50 == 0:
                 print(
                     f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()}"
             )   
@@ -179,6 +180,8 @@ if __name__ == "__main__":
             print("Update Best checkpoint!")
             best_score = eval_result['joint_goal_accuracy']
             best_checkpoint = epoch
+            
+            torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
 
-        torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
+        # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {args.model_dir}/model-{best_checkpoint}.bin")

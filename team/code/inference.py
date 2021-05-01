@@ -73,9 +73,11 @@ if __name__ == "__main__":
     model_dir_path = os.path.dirname(args.model_dir)
     eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
     config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
-    config = argparse.Namespace(**config)
     slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
     ontology = json.load(open(f"{model_dir_path}/ontology.json", "r"))
+
+    config = argparse.Namespace(**config)
+    config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
 
     tokenizer, processor, eval_features, _ = get_stuff(config,
                  eval_data, None, slot_meta, ontology)
@@ -97,14 +99,14 @@ if __name__ == "__main__":
     model.to(device)
     print("Model is loaded")
 
-    if config.model_class == 'TRADE':
+    if config.ModelName == 'TRADE':
         inference_func = trade_inference
-    elif config.model_class == 'SUMBT':
+    elif config.ModelName == 'SUMBT':
         inference_func = sumbt_inference
     else:
         raise NotImplementedError()
 
-    predictions = inference_func(model, eval_loader, processor, device, args.use_amp)
+    predictions = inference_func(model, eval_loader, processor, device, config.use_amp)
     
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)

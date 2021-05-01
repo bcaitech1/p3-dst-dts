@@ -78,7 +78,7 @@ def tokenize_ontology(ontology, tokenizer, max_seq_length):
     return torch.LongTensor(slot_types), slot_values
 
 def get_model(args, tokenizer, ontology, slot_meta):
-    if args.model_class == 'TRADE':
+    if args.ModelName == 'TRADE':
         tokenized_slot_meta = []
         for slot in slot_meta:
             tokenized_slot_meta.append(
@@ -88,7 +88,7 @@ def get_model(args, tokenizer, ontology, slot_meta):
         model_kwargs = AttrDict(
             tokenized_slot_meta=tokenized_slot_meta,
         )
-    elif args.model_class == 'SUMBT':
+    elif args.ModelName == 'SUMBT':
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)
         num_labels = [len(s) for s in slot_values_ids]
 
@@ -102,10 +102,11 @@ def get_model(args, tokenizer, ontology, slot_meta):
     model = getattr(import_module('model'), args.model_class)(
         args, **model_kwargs
     )
+    print(f'Using model class: {args.model_class}')
 
-    if args.model_class == 'TRADE':
+    if args.ModelName == 'TRADE':
         model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화    
-    elif args.model_class == 'SUMBT':
+    elif args.ModelName == 'SUMBT':
         model.initialize_slot_value_lookup(slot_values_ids, slot_type_ids)  # Tokenized Ontology의 Pre-encoding using BERT_SV        
 
     return model

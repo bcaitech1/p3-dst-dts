@@ -8,25 +8,27 @@ SUMBT:
     num_train_epochs: 10
     data_dir: /opt/ml/input/data/train_dataset
     model_dir: ./results
-    train_batch_size: 2
-    eval_batch_size: 2
+    train_batch_size: 8
+    eval_batch_size: 8
     adam_epsilon: !!python/float 1e-08
     max_grad_norm: 1.0
-    num_train_epochs: 2
+    num_train_epochs: 10
     random_seed: 42
     use_amp: True
-    model_name_or_path: xlm-roberta-base
+    model_name_or_path: dsksd/bert-ko-small-minimal
     num_rnn_layers: 1
     zero_init_rnn: False
     max_seq_length: 64
     max_label_length: 12
-    attn_head: 2
+    attn_head: 4
     fix_utterance_encoder: False
     task_name: sumbtgru
     distance_metric: euclidean
     preprocessor: SUMBTPreprocessor
-    model_class: SUMBT
-    device_pref: cuda
+    model_class: SUMBT_Custom2
+    device_pref: cpu
+
+    n_transformers: 1
 
 TRADE:
     hidden_size: 768
