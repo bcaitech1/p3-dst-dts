@@ -49,7 +49,7 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False):
         
         with torch.no_grad():
             with autocast(enabled=use_amp):
-                output, pred_slot = model(input_ids, segment_ids, input_masks, None, 1)
+                output, pred_slot = model(input_ids, segment_ids, input_masks, None)
             
         pred_slot = pred_slot.detach().cpu()
         for guid, num_turn, p_slot in zip(guids, num_turns, pred_slot):

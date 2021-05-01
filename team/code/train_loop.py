@@ -45,7 +45,7 @@ def submt_train_loop(args, model, batch):
 
     # Forward
     with autocast(enabled=args.use_amp):
-        loss, loss_slot, acc, acc_slot, _ = model(input_ids, segment_ids, input_masks, target_ids, 1)
+        loss, loss_slot, acc, acc_slot, _ = model(input_ids, segment_ids, input_masks, target_ids)
 
     return loss
     
