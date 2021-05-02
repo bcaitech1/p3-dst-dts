@@ -51,7 +51,8 @@ if __name__ == "__main__":
     train_data_file = f"{args.data_dir}/train_dials.json"
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
     ontology = json.load(open(f"{args.data_dir}/ontology.json"))
-    train_data, dev_data, dev_labels = load_dataset(train_data_file)
+    train_data, dev_data, dev_labels = load_dataset(train_data_file,
+                 use_small=args.use_small_data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
                  train_data, dev_data, slot_meta, ontology)
