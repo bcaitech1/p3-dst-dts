@@ -21,6 +21,7 @@ from inference import trade_inference, sumbt_inference
 
 from prepare import get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
+import wandb_stuff
 
 if __name__ == "__main__":
     with open('/opt/ml/project/team/code/conf2.yml') as f:
@@ -36,10 +37,10 @@ if __name__ == "__main__":
         print("get_args_SUMBT")
         args = argparse.Namespace(**conf['SUMBT'])
     args.ModelName = conf['ModelName']
+    basic_args = args
+    args = wandb_stuff.setup(conf, args)
     print(args)
-
-    ###############
-
+    
     args.device = torch.device(args.device_pref if torch.cuda.is_available() else "cpu")
 
     # random seed 고정
@@ -65,6 +66,8 @@ if __name__ == "__main__":
     # Model 선언
     model =  get_model(args, tokenizer, ontology, slot_meta)
     model.to(args.device)
+
+    wandb_stuff.watch_model(args, model)
 
     train_data = WOSDataset(train_features)
     train_sampler = RandomSampler(train_data)
@@ -112,7 +115,9 @@ if __name__ == "__main__":
     if not os.path.exists(args.model_dir):
         os.mkdir(args.model_dir)
 
-    args_save = {k:v for k, v in vars(args).items() if k != 'device'}
+    # for k, v in vars(args).items():
+    #     print
+    args_save = {k:v for k, v in args.items() if k in basic_args}
     json.dump(
         args_save,
         open(f"{args.model_dir}/exp_config.json", "w"),
@@ -148,6 +153,7 @@ if __name__ == "__main__":
     
     scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
+    total_step = 0
     for epoch in tqdm(range(n_epochs)):
         model.train()
         for step, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
@@ -168,14 +174,17 @@ if __name__ == "__main__":
             if step_scheduler:
                 scheduler.step()
 
-            if step % 50 == 0:
+            if step != 0 and (step % 50 == 0 or step == len(train_loader) - 1):
                 if len(loss_dict) >= 3:
                     loss_showing = f'loss: {loss_dict.loss}'
                 else:
                     loss_showing = ' '.join([f'{k}: {v.item():.4f}' for k, v in loss_dict.items()])
                 print(
                     f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] {loss_showing}"
-            )   
+                )   
+                wandb_stuff.train_log(args, loss_dict, total_step, epoch + step / len(train_loader))
+
+            total_step += 1
 
         val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
                 loss_fnc=loss_fnc)
@@ -187,11 +196,12 @@ if __name__ == "__main__":
         else:
             loss_showing = ' '.join([f'{k}: {v.item():.4f}' for k, v in loss_dict.items()])
         print('VAL', loss_showing)
-    
+        wandb_stuff.val_log(args, eval_result, loss_dict, total_step, epoch+1)
 
         if best_score < eval_result['joint_goal_accuracy']:
             print("Update Best checkpoint!")
             best_score = eval_result['joint_goal_accuracy']
+            wandb_stuff.best_jga_log(args, best_score)
             best_checkpoint = epoch
             
             torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
