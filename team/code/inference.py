@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import sys
 
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
@@ -21,7 +22,8 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False,
         loss_fnc=None):
     model.eval()
     predictions = {}
-    for batch in tqdm(eval_loader, total=len(eval_loader)):
+    pbar = tqdm(eval_loader, total=len(eval_loader), file=sys.stdout)
+    for batch in pbar:
         input_ids, segment_ids, input_masks, gating_ids, target_ids, guids = [
             b.to(device) if not isinstance(b, list) else b for b in batch
         ]
@@ -41,6 +43,7 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False,
             prediction = processor.recover_state(gate, gen)
             prediction = postprocess_state(prediction)
             predictions[guid] = prediction
+    pbar.close()
 
     if loss_fnc is not None:
         return predictions, loss_dict
@@ -54,7 +57,8 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
     model.eval()
     predictions = {}
     
-    for step, batch in tqdm(enumerate(eval_loader), total=len(eval_loader)):
+    pbar = tqdm(enumerate(eval_loader), total=len(eval_loader), file=sys.stdout)
+    for step, batch in pbar:
         input_ids, segment_ids, input_masks, target_ids, num_turns, guids  = \
             [b.to(device) if not isinstance(b, list) else b for b in batch]
         
@@ -70,7 +74,8 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
             pred_states = processor.recover_state(p_slot, num_turn)
             for t_idx, pred_state in enumerate(pred_states):
                 predictions[f'{guid}-{t_idx}'] = pred_state
-    
+    pbar.close()
+
     if loss_fnc is not None:
         return predictions, loss_dict
     else:

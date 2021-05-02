@@ -79,11 +79,16 @@ class GRUEncoder(nn.Module):
             self.proj_layer = None
 
         self.d_model = proj_dim if proj_dim else d_model
+
+        if n_layer == 1:
+            gru_dropout = 0
+        else:
+            gru_dropout = dropout
         self.gru = nn.GRU(
             self.d_model,
             self.d_model,
             n_layer,
-            dropout=dropout,
+            dropout=gru_dropout,
             batch_first=True,
             bidirectional=True,
         )
@@ -119,8 +124,12 @@ class SlotGenerator(nn.Module):
             self.proj_layer = None
         self.hidden_size = proj_dim if proj_dim else hidden_size
 
+        # 원래 dropout=dropout이였지만 자꾸 밑에 에러떠서 dropout=0으로 변경
+        # /opt/conda/lib/python3.7/site-packages/torch/nn/modules/rnn.py:61: UserWarning: dropout option adds
+        # dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1,
+        # but got dropout=0.1 and num_layers=1    
         self.gru = nn.GRU(
-            self.hidden_size, self.hidden_size, 1, dropout=dropout, batch_first=True
+            self.hidden_size, self.hidden_size, 1, dropout=0, batch_first=True
         )
         self.n_gate = n_gate
         self.dropout = nn.Dropout(dropout)

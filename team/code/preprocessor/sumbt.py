@@ -87,8 +87,9 @@ class SUMBTPreprocessor(DSTPreprocessor):
             target_ids=labels,
         )
 
-    def convert_examples_to_features(self, examples):
-        return list(map(self._convert_example_to_feature, tqdm(examples)))
+    def convert_examples_to_features(self, examples, which=''):
+        tdata = tqdm(examples, desc=f'Converting {which} examples to features')
+        return list(map(self._convert_example_to_feature, tdata))
 
     def recover_state(self, pred_slots, num_turn):
         states = []

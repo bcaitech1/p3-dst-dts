@@ -1,6 +1,7 @@
 from attrdict import AttrDict
 from importlib import import_module
 
+from tqdm.auto import tqdm
 import torch
 from transformers import AutoTokenizer
 from data_utils import get_examples_from_dialogues
@@ -24,12 +25,12 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
         raise NotImplementedError()
 
     train_examples = get_examples_from_dialogues(
-        train_data, user_first=user_first, dialogue_level=dialogue_level
+        train_data, user_first=user_first, dialogue_level=dialogue_level, which='train'
     )
 
     if dev_data is not None:
         dev_examples = get_examples_from_dialogues(
-            dev_data, user_first=user_first, dialogue_level=dialogue_level
+            dev_data, user_first=user_first, dialogue_level=dialogue_level, which='val'
         )
 
     # Define Preprocessor
@@ -43,13 +44,13 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
         args.n_gate = len(processor.gating2id) # gating 갯수 none, dontcare, ptr
 
     # Extracting Featrues
-    print('Converting examples to features')
-    train_features = processor.convert_examples_to_features(train_examples)
+    # print('Converting examples to features')
+    train_features = processor.convert_examples_to_features(train_examples, which='train')
     if dev_data is not None:
-        dev_features = processor.convert_examples_to_features(dev_examples)
+        dev_features = processor.convert_examples_to_features(dev_examples, which='val')
     else:
         dev_features = None
-    print('Done converting examples to features')
+    # print('Done converting examples to features')
     
     return tokenizer, processor, train_features, dev_features
 
@@ -99,14 +100,21 @@ def get_model(args, tokenizer, ontology, slot_meta):
     else:
         raise NotImplementedError()
 
+    pbar = tqdm(desc=f'Making {args.model_class} model -- waiting...', bar_format='{desc} -> {elapsed}')
     model = getattr(import_module('model'), args.model_class)(
         args, **model_kwargs
     )
-    print(f'Using model class: {args.model_class}')
+    pbar.set_description(f'Making {args.model_class} model -- DONE')    
+    pbar.close()
 
     if args.ModelName == 'TRADE':
+        pbar = tqdm(desc='Setting subword embedding -- waiting...', bar_format='{desc} -> {elapsed}')
         model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화    
+        pbar.set_description('Setting subword embedding -- DONE')
+        pbar.close()
     elif args.ModelName == 'SUMBT':
+        print('Initializing slot value lookup --------------')
         model.initialize_slot_value_lookup(slot_values_ids, slot_type_ids)  # Tokenized Ontology의 Pre-encoding using BERT_SV        
+        print('Finished initializing slot value lookup -----')
 
     return model

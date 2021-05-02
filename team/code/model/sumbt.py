@@ -3,6 +3,7 @@ Most of code is from https://github.com/SKTBrain/SUMBT
 """
 import math
 import os.path
+from tqdm.auto import tqdm
 
 import torch
 import torch.nn as nn
@@ -177,11 +178,15 @@ class SUMBT(nn.Module):
                 embedding_dim=self.bert_output_dim,
                 mode=PositionEmbedding.MODE_ADD)
         else:
+            if self.rnn_num_layers == 1:
+                gru_dropout_prob = 0
+            else:
+                gru_dropout_prob = self.hidden_dropout_prob
             self.nbt = nn.GRU(
             input_size=self.bert_output_dim,
             hidden_size=self.hidden_dim,
             num_layers=self.rnn_num_layers,
-            dropout=self.hidden_dropout_prob,
+            dropout=gru_dropout_prob,
             batch_first=True,
             )
             self.init_parameter(self.nbt)
@@ -209,6 +214,7 @@ class SUMBT(nn.Module):
         self.sv_encoder.eval()
 
         # Slot encoding
+        pbar = tqdm(desc='Making slot encoding -- waiting...', bar_format='{desc} -> {elapsed}')
         slot_type_ids = torch.zeros(slot_ids.size(), dtype=torch.long).to(
             slot_ids.device
         )
@@ -229,8 +235,11 @@ class SUMBT(nn.Module):
         old = self.slot_lookup
         self.slot_lookup = nn.Embedding.from_pretrained(hid_slot, freeze=True)
         assert self.slot_lookup.weight.shape == old.weight.shape, f'{self.slot_lookup.weight.shape} {old.weight.shape}'
+        pbar.set_description('Making slot encoding -- DONE')
+        pbar.close()
 
-        for s, label_id in enumerate(label_ids):
+        pbar = tqdm(enumerate(label_ids), desc='Making value lookup', total=len(label_ids))
+        for s, label_id in pbar:
             label_type_ids = torch.zeros(label_id.size(), dtype=torch.long).to(
                 label_id.device
             )
@@ -247,8 +256,7 @@ class SUMBT(nn.Module):
             self.value_lookup[s] = nn.Embedding.from_pretrained(hid_label, freeze=True)
             self.value_lookup[s].padding_idx = -1
             assert self.value_lookup[s].weight.shape == old.weight.shape, f'{self.value_lookup[s].weight.shape} {old.weight.shape}'
-
-        print("Complete initialization of slot and value lookup")
+        pbar.close()
         self.sv_encoder = None
 
     def forward(

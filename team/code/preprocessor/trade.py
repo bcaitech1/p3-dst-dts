@@ -54,8 +54,9 @@ class TRADEPreprocessor(DSTPreprocessor):
             example.guid, input_id, segment_id, gating_id, target_ids
         )
 
-    def convert_examples_to_features(self, examples):
-        return list(map(self._convert_example_to_feature, tqdm(examples)))
+    def convert_examples_to_features(self, examples, which=''):
+        tdata = tqdm(examples, desc=f'Converting {which} examples to features')
+        return list(map(self._convert_example_to_feature, tdata))
 
     def recover_state(self, gate_list, gen_list):
         assert len(gate_list) == len(self.slot_meta)
