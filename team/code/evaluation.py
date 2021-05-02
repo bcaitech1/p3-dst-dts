@@ -19,7 +19,6 @@ def _evaluation(preds, labels, slot_meta):
         evaluator.update(l, p)
 
     result = evaluator.compute()
-    print(result)
     return result
 
 

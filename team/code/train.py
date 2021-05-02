@@ -20,9 +20,7 @@ from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
 from prepare import get_stuff, get_model
-
-
-
+from losses import Trade_Loss, SUBMT_Loss
 
 if __name__ == "__main__":
     with open('/opt/ml/project/team/code/conf2.yml') as f:
@@ -137,11 +135,13 @@ if __name__ == "__main__":
 
     if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
-        train_loop_kwargs = AttrDict(pad_token_id=tokenizer.pad_token_id)
+        loss_fnc = Trade_Loss(tokenizer.pad_token_id, args.n_gate)
+        train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = trade_inference
     elif args.ModelName == 'SUMBT':
         train_loop = submt_train_loop
-        train_loop_kwargs = AttrDict()
+        loss_fnc = SUBMT_Loss()
+        train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = sumbt_inference
     else:
         raise NotImplementedError()
@@ -153,8 +153,9 @@ if __name__ == "__main__":
         for step, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
 
-            loss = train_loop(args, model, batch, **train_loop_kwargs)
-            
+            loss_dict = train_loop(args, model, batch, **train_loop_kwargs)
+
+            loss = loss_dict.loss
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
             nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
@@ -168,14 +169,25 @@ if __name__ == "__main__":
                 scheduler.step()
 
             if step % 50 == 0:
+                if len(loss_dict) >= 3:
+                    loss_showing = f'loss: {loss_dict.loss}'
+                else:
+                    loss_showing = ' '.join([f'{k}: {v.item():.4f}' for k, v in loss_dict.items()])
                 print(
-                    f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()}"
+                    f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] {loss_showing}"
             )   
 
-        predictions = inference_func(model, dev_loader, processor, args.device, args.use_amp)
-        eval_result = _evaluation(predictions, dev_labels, slot_meta)
+        val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
+                loss_fnc=loss_fnc)
+        eval_result = _evaluation(val_predictions, dev_labels, slot_meta)
         for k, v in eval_result.items():
-            print(f"{k}: {v}")
+            print(f"{k}: {v:.4f}")
+        if len(loss_dict) >= 3:
+            loss_showing = f'loss: {loss_dict.loss}'
+        else:
+            loss_showing = ' '.join([f'{k}: {v.item():.4f}' for k, v in loss_dict.items()])
+        print('VAL', loss_showing)
+    
 
         if best_score < eval_result['joint_goal_accuracy']:
             print("Update Best checkpoint!")

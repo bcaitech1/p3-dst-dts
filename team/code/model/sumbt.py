@@ -200,7 +200,7 @@ class SUMBT(nn.Module):
         self.metric = torch.nn.PairwiseDistance(p=2.0, eps=1e-06, keepdim=False)
 
         ### Classifier
-        self.nll = CrossEntropyLoss(ignore_index=-1)
+        # self.nll = CrossEntropyLoss(ignore_index=-1)
 
         ### Etc.
         self.dropout = nn.Dropout(self.hidden_dropout_prob)
@@ -256,7 +256,6 @@ class SUMBT(nn.Module):
         input_ids,
         token_type_ids,
         attention_mask,
-        labels=None,
         target_slot=None,
     ):
         # B = Batch Size
@@ -383,28 +382,27 @@ class SUMBT(nn.Module):
             pred_slot.append(pred.view(ds, ts, 1))
             output.append(_dist)
 
-            if labels is not None:
-                _loss = self.nll(_dist.view(ds * ts, -1), labels[:, :, s].view(-1))
-                loss_slot.append(_loss.item())
-                loss += _loss
+            # if labels is not None:
+            #     _loss = self.nll(_dist.view(ds * ts, -1), labels[:, :, s].view(-1))
+            #     loss_slot.append(_loss.item())
+            #     loss += _loss
 
         pred_slot = torch.cat(pred_slot, 2)
         
-        if labels is None:
-            return output, pred_slot
+        return output, pred_slot
 
-        # calculate joint accuracy
-        accuracy = (pred_slot == labels).view(-1, slot_dim)
-        acc_slot = (
-            torch.sum(accuracy, 0).float()
-            / torch.sum(labels.view(-1, slot_dim) > -1, 0).float()
-        )
-        acc = (
-            sum(torch.sum(accuracy, 1) / slot_dim).float()
-            / torch.sum(labels[:, :, 0].view(-1) > -1, 0).float()
-        )  # joint accuracy
+        # # calculate joint accuracy
+        # accuracy = (pred_slot == labels).view(-1, slot_dim)
+        # acc_slot = (
+        #     torch.sum(accuracy, 0).float()
+        #     / torch.sum(labels.view(-1, slot_dim) > -1, 0).float()
+        # )
+        # acc = (
+        #     sum(torch.sum(accuracy, 1) / slot_dim).float()
+        #     / torch.sum(labels[:, :, 0].view(-1) > -1, 0).float()
+        # )  # joint accuracy
 
-        return loss, loss_slot, acc, acc_slot, pred_slot
+        # return loss, loss_slot, acc, acc_slot, pred_slot
         
 
     @staticmethod

@@ -17,7 +17,8 @@ def postprocess_state(state):
     return state
 
 
-def trade_inference(model, eval_loader, processor, device, use_amp=False):
+def trade_inference(model, eval_loader, processor, device, use_amp=False, 
+        loss_fnc=None):
     model.eval()
     predictions = {}
     for batch in tqdm(eval_loader, total=len(eval_loader)):
@@ -29,6 +30,10 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False):
             with autocast(enabled=use_amp):
                 o, g = model(input_ids, segment_ids, input_masks, 9)
 
+            if loss_fnc is not None:
+                loss_dict = loss_fnc(o, g, 
+                    target_ids, gating_ids)
+
             _, generated_ids = o.max(-1)
             _, gated_ids = g.max(-1)
 
@@ -36,10 +41,16 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False):
             prediction = processor.recover_state(gate, gen)
             prediction = postprocess_state(prediction)
             predictions[guid] = prediction
-    return predictions
+
+    if loss_fnc is not None:
+        return predictions, loss_dict
+    else:
+        return predictions
+
 inference = trade_inference
 
-def sumbt_inference(model, eval_loader, processor, device, use_amp=False):
+def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
+        loss_fnc=None):
     model.eval()
     predictions = {}
     
@@ -49,15 +60,21 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False):
         
         with torch.no_grad():
             with autocast(enabled=use_amp):
-                output, pred_slot = model(input_ids, segment_ids, input_masks, None)
+                outputs, pred_slots = model(input_ids, segment_ids, input_masks, None)
+
+                if loss_fnc is not None:
+                    loss_dict = loss_fnc(outputs, target_ids)
             
-        pred_slot = pred_slot.detach().cpu()
-        for guid, num_turn, p_slot in zip(guids, num_turns, pred_slot):
+        pred_slots = pred_slots.detach().cpu()
+        for guid, num_turn, p_slot in zip(guids, num_turns, pred_slots):
             pred_states = processor.recover_state(p_slot, num_turn)
             for t_idx, pred_state in enumerate(pred_states):
                 predictions[f'{guid}-{t_idx}'] = pred_state
     
-    return predictions
+    if loss_fnc is not None:
+        return predictions, loss_dict
+    else:
+        return predictions
 
 
 if __name__ == "__main__":
