@@ -24,15 +24,27 @@ from inference import trade_inference, sumbt_inference
 from prepare import get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
 import wandb_stuff
+import parser_maker
+from training_recorder import RunningLossRecorder
 
 if __name__ == "__main__":
-    with open('/opt/ml/project/team/code/conf2.yml') as f:
+    parser = argparse.ArgumentParser(description='Run Experiment')
+    parser.add_argument('--config', default='/opt/ml/project/team/code/conf2.yml')
+    parser = parser_maker.update_parser(parser)
+
+    config_args = parser.parse_args()
+    config_name = config_args.config
+    config_args.config = None
+    print(f'Using config: {config_name}')
+
+    with open(config_name) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f"Currnet Using Model : {conf['ModelName']}")
 
     model_name = conf['ModelName']
     args = argparse.Namespace(**conf[model_name])
+    args = parser_maker.update_config(args, config_args)
     args.ModelName = conf['ModelName']
     basic_args = args
     args = wandb_stuff.setup(conf, args)
@@ -161,7 +173,8 @@ if __name__ == "__main__":
     scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
     total_step = 0
-    # pbar = trange(n_epochs)
+    
+    loss_recorder = RunningLossRecorder(args.train_running_loss_len)
     for epoch in range(n_epochs):
         model.train()
         pbar2 = tqdm(enumerate(train_loader), total=len(train_loader), file=sys.stdout)
@@ -172,7 +185,6 @@ if __name__ == "__main__":
             optimizer.zero_grad()
 
             loss_dict = train_loop(args, model, batch, **train_loop_kwargs)
-
             loss = loss_dict.loss
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
@@ -186,17 +198,21 @@ if __name__ == "__main__":
             if step_scheduler:
                 scheduler.step()
 
-            if step != 0 and (step % 5 == 0 or step == len(train_loader) - 1):
-                if len(loss_dict) >= 5:
-                    loss_showing = f'loss: {loss_dict.loss.item():.4f}'
+            cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
+            loss_recorder.add(cpu_loss_dict)
+
+            if step != 0 and (step % args.train_log_step == 0 or step == len(train_loader) - 1):
+                log_loss_dict = loss_recorder.loss()[1]
+                if len(log_loss_dict) >= 5:
+                    loss_showing = f'loss: {log_loss_dict.loss:.4f}'
                 else:
-                    loss_showing = ' '.join([f'{k}: {v.item():.4f}' for k, v in loss_dict.items()])
+                    loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in log_loss_dict.items()])
                 pbar2.set_description(f'[{epoch}/{n_epochs}] {loss_showing}')
                 # print(
                     # f"\n[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] {loss_showing}",
                     # end=''
                 # )   
-                wandb_stuff.train_log(args, loss_dict, total_step, epoch + step / len(train_loader))
+                wandb_stuff.train_log(args, log_loss_dict, total_step, epoch + step / len(train_loader))
 
             total_step += 1
         pbar2.close()
@@ -207,9 +223,9 @@ if __name__ == "__main__":
         for k, v in eval_result.items():
             print(f"{k}: {v:.4f}")
         if len(loss_dict) >= 5:
-            loss_showing = f'loss: {loss_dict.loss.item():.4f}'
+            loss_showing = f'loss: {loss_dict.loss:.4f}'
         else:
-            loss_showing = ' '.join([f'{k}: {v.item():.4f}' for k, v in loss_dict.items()])
+            loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in loss_dict.items()])
         print(loss_showing)
         print('------------------------------')
         wandb_stuff.val_log(args, eval_result, loss_dict, total_step, epoch+1)
@@ -220,8 +236,9 @@ if __name__ == "__main__":
             wandb_stuff.best_jga_log(args, best_score)
             best_checkpoint = epoch
             
-            torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
+            if args.save_model:
+                torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
 
         print()
         # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
-    print(f"Best checkpoint: {args.model_dir}/model-{best_checkpoint}.bin",)
+    print(f"Best checkpoint: {best_checkpoint}",)

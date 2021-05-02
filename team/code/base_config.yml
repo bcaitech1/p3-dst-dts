@@ -8,7 +8,7 @@ wandb :
         - v0
 
 SUMBT:
-    hidden_dim: 600
+    hidden_dim: 300
     learning_rate: !!python/float 5e-5
     warmup_ratio: 0.1
     weight_decay: 0.01
@@ -24,9 +24,9 @@ SUMBT:
     model_name_or_path: dsksd/bert-ko-small-minimal
     num_rnn_layers: 1
     zero_init_rnn: False
-    max_seq_length: 128
+    max_seq_length: 64
     max_label_length: 12
-    attn_head: 8
+    attn_head: 4
     fix_utterance_encoder: False
     task_name: sumbtgru
     distance_metric: euclidean
@@ -37,7 +37,7 @@ SUMBT:
                                     #    nlp 전체 출력 사용
                                     # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
     use_transformer: True # True -> transformer, False -> gru
-    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
+    n_transformers: 1 # transfomer block 몇개 중첩으로 사용할건지
 
     use_small_data: False # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
 

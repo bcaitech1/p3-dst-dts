@@ -11,6 +11,8 @@ from tqdm.auto import tqdm
 from data_utils import WOSDataset
 from prepare import get_model, get_stuff
 
+from training_recorder import RunningLossRecorder
+
 def postprocess_state(state):
     for i, s in enumerate(state):
         s = s.replace(" : ", ":")
@@ -23,6 +25,7 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False,
     model.eval()
     predictions = {}
     pbar = tqdm(eval_loader, total=len(eval_loader), file=sys.stdout)
+    loss_recorder = RunningLossRecorder(len(eval_loader))
     for batch in pbar:
         input_ids, segment_ids, input_masks, gating_ids, target_ids, guids = [
             b.to(device) if not isinstance(b, list) else b for b in batch
@@ -33,11 +36,15 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False,
                 o, g = model(input_ids, segment_ids, input_masks, 9)
 
             if loss_fnc is not None:
-                loss_dict = loss_fnc(o, g, 
-                    target_ids, gating_ids)
+                with autocast(enabled=use_amp):
+                    loss_dict = loss_fnc(o, g, target_ids, gating_ids)
+
+                cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
+                loss_recorder.add(cpu_loss_dict)
 
             _, generated_ids = o.max(-1)
             _, gated_ids = g.max(-1)
+
 
         for guid, gate, gen in zip(guids, gated_ids.tolist(), generated_ids.tolist()):
             prediction = processor.recover_state(gate, gen)
@@ -46,7 +53,7 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False,
     pbar.close()
 
     if loss_fnc is not None:
-        return predictions, loss_dict
+        return predictions, loss_recorder.loss()[1]
     else:
         return predictions
 
@@ -58,6 +65,7 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
     predictions = {}
     
     pbar = tqdm(enumerate(eval_loader), total=len(eval_loader), file=sys.stdout)
+    loss_recorder = RunningLossRecorder(len(eval_loader))
     for step, batch in pbar:
         input_ids, segment_ids, input_masks, target_ids, num_turns, guids  = \
             [b.to(device) if not isinstance(b, list) else b for b in batch]
@@ -66,8 +74,12 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
             with autocast(enabled=use_amp):
                 outputs, pred_slots = model(input_ids, segment_ids, input_masks, None)
 
-                if loss_fnc is not None:
+            if loss_fnc is not None:
+                with autocast(enabled=use_amp):
                     loss_dict = loss_fnc(outputs, target_ids)
+
+                cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
+                loss_recorder.add(cpu_loss_dict)
             
         pred_slots = pred_slots.detach().cpu()
         for guid, num_turn, p_slot in zip(guids, num_turns, pred_slots):
@@ -77,7 +89,7 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
     pbar.close()
 
     if loss_fnc is not None:
-        return predictions, loss_dict
+        return predictions, loss_recorder.loss()[1]
     else:
         return predictions
 
