@@ -29,7 +29,7 @@ from training_recorder import RunningLossRecorder
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run Experiment')
-    parser.add_argument('--config', 
+    parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
                         default='/opt/ml/git/p3-dst-dts/team/code/conf.yml')
