@@ -29,7 +29,19 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 if __name__ == "__main__":
-    with open('conf.yml') as f:
+    ##############
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-c","--config", 
+                        type=str, 
+                        help="Get config file following root",
+                        default="/opt/ml/git/p3-dst-dts/team/code/conf.yml")
+    
+    terminal_args = parser.parse_args()
+    print(f'config root : {terminal_args.config}')
+    ###############
+
+    with open(terminal_args.config) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f"Currnet Using Model : {conf['ModelName'][0]}")
