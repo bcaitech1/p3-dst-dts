@@ -6,7 +6,7 @@ import yaml
 import pprint
 import sys
 from attrdict import AttrDict
-
+from collections import Counter,defaultdict
 import torch
 import torch.nn as nn
 from torch.cuda.amp import GradScaler
@@ -23,6 +23,9 @@ from inference import trade_inference, sumbt_inference
 
 from prepare import get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
+
+from eda import getWrong_Domain_Slot_Value_distribution_counter,getOriginal_Slot_Value_distribution_counter,draw_EDA, draw_WrongTrend
+
 import wandb_stuff
 import parser_maker
 from training_recorder import RunningLossRecorder
@@ -32,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='/opt/ml/git/p3-dst-dts/team/code/conf.yml')
+                        default='/opt/ml/p3-dst-dts/team/code/conf.yml')
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
@@ -176,7 +179,10 @@ if __name__ == "__main__":
     scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
     total_step = 0
-    
+        
+    wrong_list=[] #에폭별로 wrong_answer를 담아둘 배열
+    correct_list=[] #wrong_list의 에폭별 오답률을 위해 correct_answer를 담아둘 배열
+
     loss_recorder = RunningLossRecorder(args.train_running_loss_len)
     for epoch in range(n_epochs):
         model.train()
@@ -221,7 +227,16 @@ if __name__ == "__main__":
         pbar2.close()
         val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
                 loss_fnc=loss_fnc)
-        eval_result = _evaluation(val_predictions, dev_labels, slot_meta)
+        eval_result,now_wrong_list,now_correct_list = _evaluation(val_predictions, dev_labels, slot_meta)
+        ##EDA - dh
+        domain_counter,_,_=getWrong_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
+        print(domain_counter)
+        o_domain_counter,_,_=getOriginal_Slot_Value_distribution_counter(Counter(now_correct_list))
+        print(o_domain_counter)
+        draw_EDA(domain_counter,o_domain_counter, epoch)
+        wrong_list.append(now_wrong_list)
+        correct_list.append(now_correct_list)
+
         print('---------Validation-----------')
         for k, v in eval_result.items():
             print(f"{k}: {v:.4f}")
@@ -245,3 +260,4 @@ if __name__ == "__main__":
         print()
         # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
+    draw_WrongTrend(wrong_list)
