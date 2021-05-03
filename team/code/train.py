@@ -3,6 +3,8 @@ import json
 import os
 import random
 import yaml
+import pprint
+import sys
 from attrdict import AttrDict
 
 import torch
@@ -10,52 +12,50 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
-from transformers import AdamW, AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AdamW, get_linear_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 
 from data_utils import (WOSDataset, load_dataset,
                         seed_everything)
-from eval_utils import DSTEvaluator
 from evaluation import _evaluation
-# from inference import inference
-from model import TRADE, masked_cross_entropy_for_value
-# from preprocessor import TRADEPreprocessor
 
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
-from prepare_preprocessor import get_stuff, get_model
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+from prepare import get_stuff, get_model
+from losses import Trade_Loss, SUBMT_Loss
+import wandb_stuff
+import parser_maker
+from training_recorder import RunningLossRecorder
 
 if __name__ == "__main__":
-    ##############
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("-c","--config", 
-                        type=str, 
+    parser = argparse.ArgumentParser(description='Run Experiment')
+    parser.add_argument('--config', 
+                        type=str,
                         help="Get config file following root",
-                        default="/opt/ml/git/p3-dst-dts/team/code/conf.yml")
-    
-    terminal_args = parser.parse_args()
-    print(f'config root : {terminal_args.config}')
-    ###############
+                        default='/opt/ml/git/p3-dst-dts/team/code/conf.yml')
+    parser = parser_maker.update_parser(parser)
 
-    with open(terminal_args.config) as f:
+    config_args = parser.parse_args()
+    config_name = config_args.config
+    config_args.config = None
+    print(f'Using config: {config_name}')
+
+    with open(config_name) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
-    print(f"Currnet Using Model : {conf['ModelName'][0]}")
+    print(f"Currnet Using Model : {conf['ModelName']}")
 
-    if conf['ModelName'] == 'TRADE':
-        print("get_args_TRADE")
-        args = argparse.Namespace(**conf['TRADE'])
-
-    if conf['ModelName'] == 'SUMBT':
-        print("get_args_SUMBT")
-        args = argparse.Namespace(**conf['SUMBT'])
-    print(args)
-
-    ###############
+    model_name = conf['ModelName']
+    args = argparse.Namespace(**conf[model_name])
+    args = parser_maker.update_config(args, config_args)
+    args.ModelName = conf['ModelName']
+    basic_args = args
+    args = wandb_stuff.setup(conf, args)
+    print(f'Get Args {model_name}')
+    pprint.pprint({k:v for k, v in args.items()})
+    print()
+    
+    args.device = torch.device(args.device_pref if torch.cuda.is_available() else "cpu")
 
     # random seed 고정
     seed_everything(args.random_seed)
@@ -64,7 +64,8 @@ if __name__ == "__main__":
     train_data_file = f"{args.data_dir}/train_dials.json"
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
     ontology = json.load(open(f"{args.data_dir}/ontology.json"))
-    train_data, dev_data, dev_labels = load_dataset(train_data_file)
+    train_data, dev_data, dev_labels = load_dataset(train_data_file,
+                 use_small=args.use_small_data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
                  train_data, dev_data, slot_meta, ontology)
@@ -78,7 +79,14 @@ if __name__ == "__main__":
     
     # Model 선언
     model =  get_model(args, tokenizer, ontology, slot_meta)
-    model.to(device)
+    # print(f'Moving model to {args.device}')
+    pbar = tqdm(desc=f'Moving model to {args.device} -- waiting...', bar_format='{desc} -> {elapsed}')
+    model.to(args.device)
+    pbar.set_description(f'Moving model to {args.device} -- DONE')  
+    pbar.close()
+    # print(f'Finished moving model to {args.device}')
+
+    wandb_stuff.watch_model(args, model)
 
     train_data = WOSDataset(train_features)
     train_sampler = RandomSampler(train_data)
@@ -88,7 +96,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
         collate_fn=processor.collate_fn,
     )
-    print("# train:", len(train_data))
+    
 
     dev_data = WOSDataset(dev_features)
     dev_sampler = SequentialSampler(dev_data)
@@ -98,7 +106,12 @@ if __name__ == "__main__":
         sampler=dev_sampler,
         collate_fn=processor.collate_fn,
     )
+
+    print()
+    print("# train:", len(train_data))
     print("# dev:", len(dev_data))
+    print()
+    print('##### START TRAINING #####')
     
     # Optimizer 및 Scheduler 선언
     ### 이 부분은 SUMBT에만 있던거
@@ -126,8 +139,9 @@ if __name__ == "__main__":
     if not os.path.exists(args.model_dir):
         os.mkdir(args.model_dir)
 
+    args_save = {k:v for k, v in args.items() if k in basic_args}
     json.dump(
-        vars(args),
+        args_save,
         open(f"{args.model_dir}/exp_config.json", "w"),
         indent=2,
         ensure_ascii=False,
@@ -146,26 +160,35 @@ if __name__ == "__main__":
         ensure_ascii=False,
     )
 
-    if args.model_class == 'TRADE':
+    if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
-        train_loop_kwargs = AttrDict(pad_token_id=tokenizer.pad_token_id)
+        loss_fnc = Trade_Loss(tokenizer.pad_token_id, args.n_gate)
+        train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = trade_inference
-    elif args.model_class == 'SUMBT':
+    elif args.ModelName == 'SUMBT':
         train_loop = submt_train_loop
-        train_loop_kwargs = AttrDict()
+        loss_fnc = SUBMT_Loss()
+        train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = sumbt_inference
     else:
         raise NotImplementedError()
     
     scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
-    for epoch in tqdm(range(n_epochs)):
+    total_step = 0
+    
+    loss_recorder = RunningLossRecorder(args.train_running_loss_len)
+    for epoch in range(n_epochs):
         model.train()
-        for step, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
+        pbar2 = tqdm(enumerate(train_loader), total=len(train_loader), file=sys.stdout)
+        loss_showing = 'none'
+        step = 0
+        pbar2.set_description(f'[{epoch}/{n_epochs}] {loss_showing}')
+        for step, batch in pbar2:
             optimizer.zero_grad()
 
-            loss = train_loop(args, model, batch, **train_loop_kwargs)
-            
+            loss_dict = train_loop(args, model, batch, **train_loop_kwargs)
+            loss = loss_dict.loss
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
             nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
@@ -178,20 +201,47 @@ if __name__ == "__main__":
             if step_scheduler:
                 scheduler.step()
 
-            if step % 100 == 0:
-                print(
-                    f"[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] loss: {loss.item()}"
-            )   
+            cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
+            loss_recorder.add(cpu_loss_dict)
 
-        predictions = inference_func(model, dev_loader, processor, device, args.use_amp)
-        eval_result = _evaluation(predictions, dev_labels, slot_meta)
+            if step != 0 and (step % args.train_log_step == 0 or step == len(train_loader) - 1):
+                log_loss_dict = loss_recorder.loss()[1]
+                if len(log_loss_dict) >= 5:
+                    loss_showing = f'loss: {log_loss_dict.loss:.4f}'
+                else:
+                    loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in log_loss_dict.items()])
+                pbar2.set_description(f'[{epoch}/{n_epochs}] {loss_showing}')
+                # print(
+                    # f"\n[{epoch}/{n_epochs}] [{step}/{len(train_loader)}] {loss_showing}",
+                    # end=''
+                # )   
+                wandb_stuff.train_log(args, log_loss_dict, total_step, epoch + step / len(train_loader))
+
+            total_step += 1
+        pbar2.close()
+        val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
+                loss_fnc=loss_fnc)
+        eval_result = _evaluation(val_predictions, dev_labels, slot_meta)
+        print('---------Validation-----------')
         for k, v in eval_result.items():
-            print(f"{k}: {v}")
+            print(f"{k}: {v:.4f}")
+        if len(loss_dict) >= 5:
+            loss_showing = f'loss: {loss_dict.loss:.4f}'
+        else:
+            loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in loss_dict.items()])
+        print(loss_showing)
+        print('------------------------------')
+        wandb_stuff.val_log(args, eval_result, loss_dict, total_step, epoch+1)
 
         if best_score < eval_result['joint_goal_accuracy']:
-            print("Update Best checkpoint!")
+            print("Update Best checkpoint!",)
             best_score = eval_result['joint_goal_accuracy']
+            wandb_stuff.best_jga_log(args, best_score)
             best_checkpoint = epoch
+            
+            if args.save_model:
+                torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
 
-        torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
-    print(f"Best checkpoint: {args.model_dir}/model-{best_checkpoint}.bin")
+        print()
+        # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
+    print(f"Best checkpoint: {best_checkpoint}",)

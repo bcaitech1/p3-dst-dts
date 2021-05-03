@@ -1,4 +1,4 @@
-from data_utils import get_examples_from_dialogues, convert_state_dict, load_dataset
+from data_utils import convert_state_dict
 from data_utils import OntologyDSTFeature, DSTPreprocessor, _truncate_seq_pair
 from tqdm.auto import tqdm
 import torch
@@ -12,6 +12,7 @@ class SUMBTPreprocessor(DSTPreprocessor):
         ontology=None,
         max_seq_length=64,
         max_turn_length=14,
+        model_name_or_path=None
     ):
         self.slot_meta = slot_meta
         self.src_tokenizer = src_tokenizer
@@ -19,6 +20,7 @@ class SUMBTPreprocessor(DSTPreprocessor):
         self.ontology = ontology
         self.max_seq_length = max_seq_length
         self.max_turn_length = max_turn_length
+        self.model_name_or_path = model_name_or_path
 
     def _convert_example_to_feature(self, example):
         guid = example[0].guid.rsplit("-", 1)[0]  # dialogue_idx
@@ -41,7 +43,11 @@ class SUMBTPreprocessor(DSTPreprocessor):
                 + uttrs[1]
                 + [self.src_tokenizer.sep_token_id]
             )
-            token_type = [0] * (len(uttrs[0]) + 2) + [1] * (len(uttrs[1]) + 1)
+
+            if self.model_name_or_path == 'xlm-roberta-base': # roberta는 token_types 사용안함
+                token_type = [0] * (len(uttrs[0]) + 2 + len(uttrs[1]) + 1)
+            else:
+                token_type = [0] * (len(uttrs[0]) + 2) + [1] * (len(uttrs[1]) + 1)
             if len(tokens) < self.max_seq_length:
                 gap = self.max_seq_length - len(tokens)
                 tokens.extend([self.src_tokenizer.pad_token_id] * gap)
@@ -68,8 +74,9 @@ class SUMBTPreprocessor(DSTPreprocessor):
             gap = self.max_turn_length - len(turns)
             for _ in range(gap):
                 dummy_turn = [self.src_tokenizer.pad_token_id] * self.max_seq_length
+                dummy_token_type = [0] * self.max_seq_length
                 turns.append(dummy_turn)
-                token_types.append(dummy_turn)
+                token_types.append(dummy_token_type)
                 dummy_label = [-1] * len(self.slot_meta)
                 labels.append(dummy_label)
         return OntologyDSTFeature(
@@ -80,8 +87,9 @@ class SUMBTPreprocessor(DSTPreprocessor):
             target_ids=labels,
         )
 
-    def convert_examples_to_features(self, examples):
-        return list(map(self._convert_example_to_feature, tqdm(examples)))
+    def convert_examples_to_features(self, examples, which=''):
+        tdata = tqdm(examples, desc=f'Converting {which} examples to features')
+        return list(map(self._convert_example_to_feature, tdata))
 
     def recover_state(self, pred_slots, num_turn):
         states = []

@@ -42,8 +42,10 @@ class WOSDataset(Dataset):
         return self.features[idx]
 
 
-def load_dataset(dataset_path, dev_split=0.1):
+def load_dataset(dataset_path, dev_split=0.1, use_small=False):
     data = json.load(open(dataset_path))
+    if use_small:
+        data = data[:100]
     num_data = len(data)
     num_dev = int(num_data * dev_split)
     if not num_dev:
@@ -205,9 +207,10 @@ def get_examples_from_dialogue(dialogue, user_first=False):
     return examples
 
 
-def get_examples_from_dialogues(data, user_first=False, dialogue_level=False):
+def get_examples_from_dialogues(data, user_first=False, dialogue_level=False, which=''):
     examples = []
-    for d in tqdm(data):
+    pbar = tqdm(data, desc=f'Getting {which} examples from dialogues')
+    for d in pbar:
         example = get_examples_from_dialogue(d, user_first=user_first)
         if dialogue_level:
             examples.append(example)
