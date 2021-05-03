@@ -2,7 +2,9 @@ import argparse
 import json
 import os
 import random
+#########
 import yaml
+#########
 
 import torch
 import torch.nn as nn
@@ -23,10 +25,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
 
+##############################
     with open('conf.yml') as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
-    print(f"Currnet Using Model : {conf['ModelName'][0]}")
+    print(f"Currnet Using Model : {conf['ModelName']}")
 
     if conf['ModelName'] == 'TRADE':
         print("get_args_TRADE")
@@ -35,6 +38,7 @@ if __name__ == "__main__":
     if conf['ModelName'] == 'SUMBT':
         print("get_args_SUMBT")
         args = argparse.Namespace(**conf['SUMBT'])
+##############################
 
     # random seed 고정
     set_seed(args.random_seed)

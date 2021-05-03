@@ -9,7 +9,7 @@ from typing import List, Optional, Union
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 @dataclass
@@ -90,6 +90,15 @@ def set_seed(seed):
     torch.manual_seed(seed)
     if torch.cuda.device_count() > 0:
         torch.cuda.manual_seed_all(seed)
+
+def seed_everything(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if use multi-GPU
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
 
 
 def split_slot(dom_slot_value, get_domain_slot=False):

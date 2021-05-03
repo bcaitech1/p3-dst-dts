@@ -1,28 +1,26 @@
-## Baseline model of BoostCamp2021 P-Stage DST
+## 사용법
+`python train.py` 이러면 conf.yml에 있는 설정 기준으로 학습됩니다.
 
-
-Open-vocab based DST model인 [TRADE](https://arxiv.org/abs/1905.08743)의 한국어 구현체입니다. (5강, 6강 내용 참고) <br>
-
-- 기존의 GloVe, Char Embedding 대신 `monologg/koelectra-base-v3-discriminator`의 `token_embeddings`을pretrained Subword Embedding으로 사용합니다.
-- 메모리를 아끼기 위해 Token Embedding (768) => Hidden Dimension (400)으로의 Projection layer가 들어 있습니다.
-- 빠른 학습을 위해 `Parallel Decoding`이 구현되어 있습니다.
-
+## 추론
+`python inference.py --data_dir 데이터디렉토리 --model_dir 사용할모델.bin --output_dir` 출력위치
 
 ### 1. 필요한 라이브러리 설치
+`pip install attrdict` <br>
+`pip install PyYAML` <br>
 
-`pip install -r requirements.txt`
+### 2. 파일 설명
+`train.py`: 기본 train.py처럼 전체적인 학습 프로세스 있음 <br>
+`train_loop.py`: batch랑 model이 입력으로 제공됬을 때 loss 리턴하는 함수들 모음 <br>
+>>> 모델들마다 train 부분이 달라서 이렇게 함
 
-### 2. 모델 학습
+`preprocessor.py`: 삭제 예정<br>
+`prepare_preprocessor.py`: args로부터 해당하는 preprocessor랑 model 가져오는 함수들 모음<br>
+>>> 이름 변동 필요<br>
 
-`SM_CHANNEL_TRAIN=data/train_dataset SM_MODEL_DIR=[model saving dir] python train.py` <br>
-학습된 모델은 epoch 별로 `SM_MODEL_DIR/model-{epoch}.bin` 으로 저장됩니다.<br>
-추론에 필요한 부가 정보인 configuration들도 같은 경로에 저장됩니다.<br>
-Best Checkpoint Path가 학습 마지막에 표기됩니다.<br>
+`inference.py`: 모델별 inference 함수 구현됨, 사용할 때는 기존 방식처럼 사용하면됨<br>
+`evaluation.py` `eval_util.py`: 건드리지 않음<br>
+`data_util.py`: 1회차 대회에 있던 seed_everything 함수 추가말고는 다른거 없음<br>
+`preprocessor` 폴더: 모델별 preprocessor 정의, 사용할 하고 싶은 함수나 클래스는 `__init__.py`에 선언해서 사용하면됨<br>
+`model` 폴더: 모델 정의, 사용할 하고 싶은 함수나 클래스는 `__init__.py`에 선언해서 사용하면됨<br>
+`conf.yml`: 모델 돌릴 때 필요한 설정 쓰는 파일, ModelName에 해당하는 설정 사용<br>
 
-### 3. 추론하기
-
-`SM_CHANNEL_EVAL=data/eval_dataset/public SM_CHANNEL_MODEL=[Model Checkpoint Path] SM_OUTPUT_DATA_DIR=[Output path] python inference.py`
-
-### 4. 제출하기
-
-3번 스텝 `inference.py`에서 `SM_OUTPUT_DATA_DIR`에 저장된 `predictions.json`을 제출합니다.

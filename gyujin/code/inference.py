@@ -4,12 +4,14 @@ import json
 
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
+from torch.cuda.amp import autocast
 from tqdm.auto import tqdm
 from transformers import BertTokenizer
 
 from data_utils import (WOSDataset, get_examples_from_dialogues)
 from model import TRADE
 from preprocessor import TRADEPreprocessor
+from prepare_preprocessor import get_model, get_stuff
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,7 +24,7 @@ def postprocess_state(state):
     return state
 
 
-def inference(model, eval_loader, processor, device):
+def trade_inference(model, eval_loader, processor, device, use_amp=False):
     model.eval()
     predictions = {}
     for batch in tqdm(eval_loader, total=len(eval_loader)):
@@ -31,7 +33,8 @@ def inference(model, eval_loader, processor, device):
         ]
 
         with torch.no_grad():
-            o, g = model(input_ids, segment_ids, input_masks, 9)
+            with autocast(enabled=use_amp):
+                o, g = model(input_ids, segment_ids, input_masks, 9)
 
             _, generated_ids = o.max(-1)
             _, gated_ids = g.max(-1)
@@ -40,6 +43,27 @@ def inference(model, eval_loader, processor, device):
             prediction = processor.recover_state(gate, gen)
             prediction = postprocess_state(prediction)
             predictions[guid] = prediction
+    return predictions
+inference = trade_inference
+
+def sumbt_inference(model, eval_loader, processor, device, use_amp=False):
+    model.eval()
+    predictions = {}
+    
+    for step, batch in tqdm(enumerate(eval_loader), total=len(eval_loader)):
+        input_ids, segment_ids, input_masks, target_ids, num_turns, guids  = \
+            [b.to(device) if not isinstance(b, list) else b for b in batch]
+        
+        with torch.no_grad():
+            with autocast(enabled=use_amp):
+                output, pred_slot = model(input_ids, segment_ids, input_masks, None, 1)
+            
+        pred_slot = pred_slot.detach().cpu()
+        for guid, num_turn, p_slot in zip(guids, num_turns, pred_slot):
+            pred_states = processor.recover_state(p_slot, num_turn)
+            for t_idx, pred_state in enumerate(pred_states):
+                predictions[f'{guid}-{t_idx}'] = pred_state
+    
     return predictions
 
 
@@ -50,25 +74,21 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--eval_batch_size", type=int, default=32)
     args = parser.parse_args()
-    args.data_dir = os.environ['SM_CHANNEL_EVAL']
-    args.model_dir = os.environ['SM_CHANNEL_MODEL']
-    args.output_dir = os.environ['SM_OUTPUT_DATA_DIR']
+    
+#     args.preprocessor = 'TRADEPreprocessor'
+#     args.model_class = 'TRADE'    
+    args.use_amp = True
     
     model_dir_path = os.path.dirname(args.model_dir)
     eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
     config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
     config = argparse.Namespace(**config)
     slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
+    ontology = json.load(open(f"{model_dir_path}/ontology.json", "r"))
 
-    tokenizer = BertTokenizer.from_pretrained(config.model_name_or_path)
-    processor = TRADEPreprocessor(slot_meta, tokenizer)
+    tokenizer, processor, eval_features, _ = get_stuff(config,
+                 eval_data, None, slot_meta, ontology)
 
-    eval_examples = get_examples_from_dialogues(
-        eval_data, user_first=False, dialogue_level=False
-    )
-
-    # Extracting Featrues
-    eval_features = processor.convert_examples_to_features(eval_examples)
     eval_data = WOSDataset(eval_features)
     eval_sampler = SequentialSampler(eval_data)
     eval_loader = DataLoader(
@@ -79,19 +99,21 @@ if __name__ == "__main__":
     )
     print("# eval:", len(eval_data))
 
-    tokenized_slot_meta = []
-    for slot in slot_meta:
-        tokenized_slot_meta.append(
-            tokenizer.encode(slot.replace("-", " "), add_special_tokens=False)
-        )
+    model =  get_model(config, tokenizer, ontology, slot_meta)
 
-    model = TRADE(config, tokenized_slot_meta)
     ckpt = torch.load(args.model_dir, map_location="cpu")
     model.load_state_dict(ckpt)
     model.to(device)
     print("Model is loaded")
 
-    predictions = inference(model, eval_loader, processor, device)
+    if config.model_class == 'TRADE':
+        inference_func = trade_inference
+    elif config.model_class == 'SUMBT':
+        inference_func = sumbt_inference
+    else:
+        raise NotImplementedError()
+
+    predictions = inference_func(model, eval_loader, processor, device, args.use_amp)
     
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
