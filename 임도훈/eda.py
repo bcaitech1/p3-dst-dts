@@ -58,9 +58,9 @@ def getOriginal_Slot_Value_distribution_counter(correct_counter : dict) -> Defau
         o_slot_counter[slot]+=v
         o_value_counter[value]+=v
         
-    print(sorted(o_domain_counter.items(),key=lambda x : x[1], reverse=True)[:5])
-    print(sorted(o_slot_counter.items(),key=lambda x : x[1], reverse=True)[:5])
-    print(sorted(o_value_counter.items(),key=lambda x : x[1], reverse=True)[:5])
+#     print(sorted(o_domain_counter.items(),key=lambda x : x[1], reverse=True)[:5])
+#     print(sorted(o_slot_counter.items(),key=lambda x : x[1], reverse=True)[:5])
+#     print(sorted(o_value_counter.items(),key=lambda x : x[1], reverse=True)[:5])
     #value 중 1,2는 숙박, 음식 부문에서 "예약기간", "예약 명수"를 포함한다 
     return o_domain_counter,o_slot_counter,o_value_counter
 
@@ -71,6 +71,8 @@ def draw_EDA(domain_counter: dict,o_domain_counter: dict):
         domain_counter (dict): [getWrong_Domain_Slot_Value_distribution_counter의 첫번째 반환값]
         o_domain_counter (dict): [getOriginal_Slot_Value_distribution_counter의 첫번째 반환값]
     """
+    domain_counter=dict(sorted(domain_counter.items()))
+    o_domain_counter=dict(sorted(o_domain_counter.items()))
     
     plt.title('wrong num per domain')
     
@@ -100,6 +102,7 @@ def draw_WrongTrend(wrong_list:list(list()))-> None:
         if epoch%3==0:
             plt.title('wrong num per domain')
         domain_counter,slot_counter,value_counter=getWrong_Domain_Slot_Value_distribution_counter(Counter(wrong))
+        domain_counter=dict(sorted(domain_counter.items()))
         plt.plot([Kdomain2Edomain[d] for d in domain_counter.keys()],domain_counter.values(), label=f"ep{epoch} domain")
         if epoch%3==0 and epoch!=0:
             plt.legend()
@@ -111,6 +114,7 @@ def draw_WrongTrend(wrong_list:list(list()))-> None:
     plt.title('wrong num per domain')
     for epoch, wrong in enumerate(wrong_list):
         domain_counter,slot_counter,value_counter=getWrong_Domain_Slot_Value_distribution_counter(Counter(wrong))
+        domain_counter=dict(sorted(domain_counter.items()))
         plt.plot([Kdomain2Edomain[d] for d in domain_counter.keys()],domain_counter.values(), label=f"ep{epoch} domain")
     plt.legend()
     plt.show()
