@@ -78,7 +78,7 @@ def draw_EDA(domain_counter: dict,o_domain_counter: dict, epoch: int):
     plt.title(f'wrong num per domain ep:{epoch}')
     
     plt.plot([Kdomain2Edomain[d] for d in domain_counter.keys()],domain_counter.values(), label="wrong")
-    #plt.plot([Kdomain2Edomain[d] for d in o_domain_counter.keys()],o_domain_counter.values(),label="total")
+    plt.plot([Kdomain2Edomain[d] for d in o_domain_counter.keys()],o_domain_counter.values(),label="total")
     plt.legend()
     #현재 디렉토리에 사진 저장
     plt.savefig(f'domain_graph_plot_ep{epoch}.png')
