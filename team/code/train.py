@@ -21,7 +21,7 @@ from evaluation import _evaluation
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
-from prepare import get_stuff, get_model
+from prepare import get_data, get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
 
 from eda import get_Domain_Slot_Value_distribution_counter, draw_EDA,draw_WrongTrend
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='/opt/ml/p3-dst-dts/team/code/conf.yml')
+                        default='/opt/ml/project/team/code/conf2.yml')
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
@@ -64,14 +64,11 @@ if __name__ == "__main__":
     seed_everything(args.random_seed)
 
     # Data Loading
-    train_data_file = f"{args.data_dir}/train_dials.json"
-    slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
-    train_data, dev_data, dev_labels = load_dataset(train_data_file,
-                 use_small=args.use_small_data)
+    data, slot_meta, ontology = get_data(args)
+    train_data, dev_data, dev_labels = load_dataset(data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
-                 train_data, dev_data, slot_meta, ontology)
+                 train_data, dev_data, slot_meta, ontology, dev_labels=dev_labels)
     
     # Slot Meta tokenizing for the decoder initial inputs
     tokenized_slot_meta = []
@@ -229,6 +226,7 @@ if __name__ == "__main__":
                 loss_fnc=loss_fnc)
         # 현재 에폭에서 eval_result 외에도 틀린 예측값, ground truth값을 뽑아낸다
         eval_result,now_wrong_list,now_correct_list = _evaluation(val_predictions, dev_labels, slot_meta)
+
         #eda
         domain_counter,slot_counter,value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
         o_domain_counter,o_slot_counter,o_value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_correct_list))
@@ -260,5 +258,5 @@ if __name__ == "__main__":
 
         print()
         # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
-    print(f"Best checkpoint: {best_checkpoint}",)
-    draw_WrongTrend(wrong_list)
+    # print(f"Best checkpoint: {best_checkpoint}",)
+    # draw_WrongTrend(wrong_list)
