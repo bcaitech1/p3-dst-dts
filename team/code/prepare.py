@@ -1,10 +1,33 @@
 from attrdict import AttrDict
 from importlib import import_module
+import json
 
 from tqdm.auto import tqdm
 import torch
 from transformers import AutoTokenizer
 from data_utils import get_examples_from_dialogues
+
+gen_slot_meta = set(['관광-이름', '숙소-이름', '식당-이름', '택시-도착지', '택시-출발지'])
+gen_domain = set(s.split('-')[0] for s in gen_slot_meta)
+
+def get_data(args):
+    train_data_file = f"{args.data_dir}/train_dials.json"
+    data = json.load(open(train_data_file))
+    if args.use_small_data:
+        data = data[:100]
+    slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
+    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
+
+    if args.use_generation_only:
+        old_data = data
+        data = []
+        for dial in old_data:
+            if any([x in gen_domain for x in dial['domains']]):
+                data.append(dial)
+        slot_meta = list(gen_slot_meta)
+        ontology = {k:v for k, v in ontology.items() if k in gen_slot_meta}
+
+    return data, slot_meta, ontology
 
 def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     if args.preprocessor == 'TRADEPreprocessor':

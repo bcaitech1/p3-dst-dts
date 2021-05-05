@@ -21,7 +21,7 @@ from evaluation import _evaluation
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
-from prepare import get_stuff, get_model
+from prepare import get_data, get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
 
 from eda import getWrong_Domain_Slot_Value_distribution_counter,getOriginal_Slot_Value_distribution_counter,draw_EDA, draw_WrongTrend
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='/opt/ml/p3-dst-dts/team/code/conf.yml')
+                        default='/opt/ml/project/team/code/conf2.yml')
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
@@ -64,11 +64,8 @@ if __name__ == "__main__":
     seed_everything(args.random_seed)
 
     # Data Loading
-    train_data_file = f"{args.data_dir}/train_dials.json"
-    slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
-    train_data, dev_data, dev_labels = load_dataset(train_data_file,
-                 use_small=args.use_small_data)
+    data, slot_meta, ontology = get_data(args)
+    train_data, dev_data, dev_labels = load_dataset(data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
                  train_data, dev_data, slot_meta, ontology)

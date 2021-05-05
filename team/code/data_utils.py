@@ -42,10 +42,7 @@ class WOSDataset(Dataset):
         return self.features[idx]
 
 
-def load_dataset(dataset_path, dev_split=0.1, use_small=False):
-    data = json.load(open(dataset_path))
-    if use_small:
-        data = data[:100]
+def load_dataset(data, dev_split=0.1):        
     num_data = len(data)
     num_dev = int(num_data * dev_split)
     if not num_dev:
