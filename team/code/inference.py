@@ -147,7 +147,7 @@ if __name__ == "__main__":
     
     json.dump(
         predictions,
-        open(f"{args.output_dir}/predictions.csv", "w"),
+        open(f"{args.output_dir}/predictions3.csv", "w"),
         indent=2,
         ensure_ascii=False,
     )

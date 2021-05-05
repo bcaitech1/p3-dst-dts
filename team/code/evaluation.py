@@ -30,7 +30,7 @@ def evaluation(gt_path, pred_path):
     slot_meta = json.load(open(SLOT_META_PATH))
     gts = json.load(open(gt_path))
     preds = json.load(open(pred_path))
-    eval_result = _evaluation(preds, gts, slot_meta)
+    eval_result,_,_ = _evaluation(preds, gts, slot_meta)
     return eval_result
 
 
