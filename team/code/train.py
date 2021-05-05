@@ -24,7 +24,7 @@ from inference import trade_inference, sumbt_inference
 from prepare import get_data, get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
 
-from eda import getWrong_Domain_Slot_Value_distribution_counter,getOriginal_Slot_Value_distribution_counter,draw_EDA, draw_WrongTrend
+from eda import get_Domain_Slot_Value_distribution_counter, draw_EDA,draw_WrongTrend
 
 import wandb_stuff
 import parser_maker
@@ -224,15 +224,17 @@ if __name__ == "__main__":
         pbar2.close()
         val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
                 loss_fnc=loss_fnc)
+        # 현재 에폭에서 eval_result 외에도 틀린 예측값, ground truth값을 뽑아낸다
         eval_result,now_wrong_list,now_correct_list = _evaluation(val_predictions, dev_labels, slot_meta)
-        ##EDA - dh
-        # domain_counter,_,_=getWrong_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
-        # print(domain_counter)
-        # o_domain_counter,_,_=getOriginal_Slot_Value_distribution_counter(Counter(now_correct_list))
-        # print(o_domain_counter)
-        # draw_EDA(domain_counter,o_domain_counter, epoch)
-        # wrong_list.append(now_wrong_list)
-        # correct_list.append(now_correct_list)
+
+        #eda
+        domain_counter,slot_counter,value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
+        o_domain_counter,o_slot_counter,o_value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_correct_list))
+        draw_EDA('domain',domain_counter,o_domain_counter, epoch)
+        draw_EDA('slot',slot_counter,o_slot_counter, epoch)
+        draw_EDA('value',value_counter,o_value_counter, epoch)
+        wrong_list.append(now_wrong_list)
+        correct_list.append(now_correct_list)
 
         print('---------Validation-----------')
         for k, v in eval_result.items():

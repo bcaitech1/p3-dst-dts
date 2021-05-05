@@ -36,5 +36,5 @@ def submt_train_loop(args, model, batch, loss_fnc):
     with autocast(enabled=args.use_amp):
         outputs, _ = model(input_ids, segment_ids, input_masks)
         loss_dict = loss_fnc(outputs, target_ids)
-
+    
     return loss_dict
