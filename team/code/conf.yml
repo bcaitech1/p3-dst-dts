@@ -1,11 +1,12 @@
-ModelName : SUMBT   # {SUMBT, TRADE}
+ModelName : TRADE   # {SUMBT, TRADE}
 
 wandb :
-    using: True
+    using: False
     project: dst
     entity: rolypolyvg295
     tags: 
         - v0
+        - trade_custom_test
 
 SUMBT:
     hidden_dim: 600
@@ -45,14 +46,17 @@ SUMBT:
     train_log_step: 50
     train_running_loss_len: 50
 
+    use_generation_only: True
+    use_gen_dialog_only: False
+
 TRADE:
     hidden_size: 768
-    learning_rate: 0.0001
+    learning_rate: !!python/float 1e-04
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 2
+    num_train_epochs: 10
     data_dir: /opt/ml/input/data/train_dataset
-    model_dir: ./results
+    model_dir: /opt/ml/project/team/code/results
     train_batch_size: 16
     eval_batch_size: 32
     adam_epsilon: !!python/float 1e-08
@@ -67,9 +71,12 @@ TRADE:
     n_gate: 3
     preprocessor: TRADEPreprocessor
     model_class: TRADE
-    device_pref: cuda
-    use_small_data: True
+    device_pref: cpu
+    use_small_data: False
 
     save_model: False
     train_log_step: 50
     train_running_loss_len: 50
+
+    use_generation_only: True
+    use_gen_dialog_only: True

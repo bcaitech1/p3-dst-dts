@@ -68,7 +68,7 @@ if __name__ == "__main__":
     train_data, dev_data, dev_labels = load_dataset(data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
-                 train_data, dev_data, slot_meta, ontology)
+                 train_data, dev_data, slot_meta, ontology, dev_labels=dev_labels)
     
     # Slot Meta tokenizing for the decoder initial inputs
     tokenized_slot_meta = []
@@ -226,13 +226,13 @@ if __name__ == "__main__":
                 loss_fnc=loss_fnc)
         eval_result,now_wrong_list,now_correct_list = _evaluation(val_predictions, dev_labels, slot_meta)
         ##EDA - dh
-        domain_counter,_,_=getWrong_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
-        print(domain_counter)
-        o_domain_counter,_,_=getOriginal_Slot_Value_distribution_counter(Counter(now_correct_list))
-        print(o_domain_counter)
-        draw_EDA(domain_counter,o_domain_counter, epoch)
-        wrong_list.append(now_wrong_list)
-        correct_list.append(now_correct_list)
+        # domain_counter,_,_=getWrong_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
+        # print(domain_counter)
+        # o_domain_counter,_,_=getOriginal_Slot_Value_distribution_counter(Counter(now_correct_list))
+        # print(o_domain_counter)
+        # draw_EDA(domain_counter,o_domain_counter, epoch)
+        # wrong_list.append(now_wrong_list)
+        # correct_list.append(now_correct_list)
 
         print('---------Validation-----------')
         for k, v in eval_result.items():
@@ -256,5 +256,5 @@ if __name__ == "__main__":
 
         print()
         # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
-    print(f"Best checkpoint: {best_checkpoint}",)
-    draw_WrongTrend(wrong_list)
+    # print(f"Best checkpoint: {best_checkpoint}",)
+    # draw_WrongTrend(wrong_list)

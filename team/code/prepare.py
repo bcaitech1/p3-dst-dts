@@ -19,6 +19,7 @@ def get_data(args):
     ontology = json.load(open(f"{args.data_dir}/ontology.json"))
 
     if args.use_generation_only:
+        print(f'Using only {" ".join(gen_slot_meta)}')
         old_data = data
         data = []
         for dial in old_data:
@@ -29,7 +30,33 @@ def get_data(args):
 
     return data, slot_meta, ontology
 
-def get_stuff(args, train_data, dev_data, slot_meta, ontology):
+def filter_examples(examples, filter_slot_meta, which, dev_labels=None):
+    filtered_examples = []
+    print(f'Filtering {which} dialogues without slot meta: {" ".join(filter_slot_meta)}')
+    old_len = len(examples)
+    pbar = tqdm(enumerate(examples), desc=f'Filtering {which} dialogues by slot meta',
+                total=old_len)
+    for idx, example in pbar:
+        have = False
+        if dev_labels is not None:
+            using_labels = dev_labels[example.guid]
+        else:
+            using_labels = example.label
+
+        for x in using_labels:
+            domain, slot, value = x.split('-')
+            if f'{domain}-{slot}' in filter_slot_meta:
+                have = True
+                break
+        if have:
+            filtered_examples.append(example)
+    pbar.close()
+
+    new_len = len(filtered_examples)
+    print(f'Filtered {which} results: {old_len} -> {new_len}')
+    return filtered_examples
+
+def get_stuff(args, train_data, dev_data, slot_meta, ontology, dev_labels=None):
     if args.preprocessor == 'TRADEPreprocessor':
         user_first = False
         dialogue_level = False
@@ -55,6 +82,13 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
         dev_examples = get_examples_from_dialogues(
             dev_data, user_first=user_first, dialogue_level=dialogue_level, which='val'
         )
+
+    if args.use_gen_dialog_only:
+        if args.ModelName == 'SUMBT':
+            raise NotImplementedError('SUMBT는 구현 안함')
+        train_examples = filter_examples(train_examples, gen_slot_meta, which='train')
+        if dev_data is not None:
+            dev_examples = filter_examples(dev_examples, gen_slot_meta, which='val', dev_labels=dev_labels)
 
     # Define Preprocessor
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
