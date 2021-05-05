@@ -1,4 +1,4 @@
-ModelName : SUMBT   # {SUMBT, TRADE}
+ModelName : TRADE   # {SUMBT, TRADE}
 
 wandb :
     using: False
@@ -8,13 +8,13 @@ wandb :
         - v0
 
 SUMBT:
-    hidden_dim: 600
+    hidden_dim: 300
     learning_rate: !!python/float 5e-5
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 30
+    num_train_epochs: 10
     data_dir: /opt/ml/input/data/train_dataset
-    model_dir: /opt/ml/git/p3-dst-dts/team/code/model
+    model_dir: /opt/ml/p3-dst-dts/임도훈/code/model
     train_batch_size: 4
     eval_batch_size: 4
     adam_epsilon: !!python/float 1e-08
@@ -24,7 +24,7 @@ SUMBT:
     model_name_or_path: dsksd/bert-ko-small-minimal
     num_rnn_layers: 1
     zero_init_rnn: False
-    max_seq_length: 140
+    max_seq_length: 128
     max_label_length: 12
     attn_head: 4
     fix_utterance_encoder: False
@@ -45,14 +45,43 @@ SUMBT:
     train_log_step: 50
     train_running_loss_len: 50
 
+# TRADE:
+#     hidden_size: 768
+#     learning_rate: !!python/float 1e-04
+#     warmup_ratio: 0.1
+#     weight_decay: 0.01
+#     num_train_epochs: 10
+#     data_dir: /opt/ml/input/data/train_dataset
+#     model_dir: /opt/ml/git/p3-dst-dts/team/code/model
+#     train_batch_size: 16
+#     eval_batch_size: 32
+#     adam_epsilon: !!python/float 1e-08
+#     max_grad_norm: 1.0
+#     random_seed: 42
+#     use_amp: True
+#     model_name_or_path: monologg/koelectra-base-v3-discriminator
+#     vocab_size: 35000
+#     hidden_dropout_prob: 0.1
+#     proj_dim: null
+#     teacher_forcing_ratio: 0.5
+#     n_gate: 3
+#     preprocessor: TRADEPreprocessor
+#     model_class: TRADE
+#     device_pref: cuda
+#     use_small_data: False
+
+#     save_model: True
+#     train_log_step: 50
+#     train_running_loss_len: 50
+
 TRADE:
     hidden_size: 768
-    learning_rate: !!python/float 1e-04
+    learning_rate: 0.0001
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 10
+    num_train_epochs: 2
     data_dir: /opt/ml/input/data/train_dataset
-    model_dir: /opt/ml/git/p3-dst-dts/team/code/model
+    model_dir: ./results
     train_batch_size: 16
     eval_batch_size: 32
     adam_epsilon: !!python/float 1e-08
@@ -68,8 +97,8 @@ TRADE:
     preprocessor: TRADEPreprocessor
     model_class: TRADE
     device_pref: cuda
-    use_small_data: False
+    use_small_data: True
 
-    save_model: True
+    save_model: False
     train_log_step: 50
     train_running_loss_len: 50

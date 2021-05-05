@@ -6,7 +6,7 @@ import yaml
 import pprint
 import sys
 from attrdict import AttrDict
-
+from collections import Counter,defaultdict
 import torch
 import torch.nn as nn
 from torch.cuda.amp import GradScaler
@@ -17,7 +17,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup, get_cosine_with
 from data_utils import (WOSDataset, load_dataset,
                         seed_everything)
 from evaluation import _evaluation
-
+from eda import get_Domain_Slot_Value_distribution_counter, draw_EDA,draw_WrongTrend
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
@@ -32,7 +32,8 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='/opt/ml/git/p3-dst-dts/team/code/conf.yml')
+                        default='/opt/ml/p3-dst-dts/임도훈/code/conf copy.yml')
+                        
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
@@ -180,6 +181,10 @@ if __name__ == "__main__":
     total_step = 0
     
     loss_recorder = RunningLossRecorder(args.train_running_loss_len)
+
+    wrong_list=[] #에폭별로 wrong_answer를 담아둘 배열
+    correct_list=[] #wrong_list의 에폭별 오답률을 위해 correct_answer를 담아둘 배열
+
     for epoch in range(n_epochs):
         model.train()
         pbar2 = tqdm(enumerate(train_loader), total=len(train_loader), file=sys.stdout)
@@ -223,7 +228,16 @@ if __name__ == "__main__":
         pbar2.close()
         val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
                 loss_fnc=loss_fnc)
-        eval_result = _evaluation(val_predictions, dev_labels, slot_meta)
+        # 현재 에폭에서 eval_result 외에도 틀린 예측값, ground truth값을 뽑아낸다
+        eval_result,now_wrong_list,now_correct_list = _evaluation(val_predictions, dev_labels, slot_meta)
+        #eda
+        domain_counter,slot_counter,value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
+        o_domain_counter,o_slot_counter,o_value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_correct_list))
+        draw_EDA('domain',domain_counter,o_domain_counter, epoch)
+        draw_EDA('slot',slot_counter,o_slot_counter, epoch)
+        draw_EDA('value',value_counter,o_value_counter, epoch)
+        wrong_list.append(now_wrong_list)
+        correct_list.append(now_correct_list)
         print('---------Validation-----------')
         for k, v in eval_result.items():
             print(f"{k}: {v:.4f}")
@@ -247,3 +261,4 @@ if __name__ == "__main__":
         print()
         # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
+    draw_WrongTrend(wrong_list)

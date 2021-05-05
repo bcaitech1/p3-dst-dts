@@ -1,5 +1,3 @@
-results/
-predictions/
 etc/
 conf2.yml
 wandb
