@@ -204,7 +204,7 @@ else :
     
     json.dump(
         predictions,
-        open(f"{args.output_dir}/predictions2.csv", "w"),
+        open(f"{args.output_dir}/predictions3.csv", "w"),
         indent=2,
         ensure_ascii=False,
     )

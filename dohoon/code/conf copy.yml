@@ -12,7 +12,7 @@ SUMBT:
     learning_rate: !!python/float 5e-5
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 10
+    num_train_epochs: 22
     data_dir: /opt/ml/input/data/train_dataset
     model_dir: /opt/ml/p3-dst-dts/dohoon/code/model
     train_batch_size: 4
@@ -37,7 +37,7 @@ SUMBT:
                                     #    nlp 전체 출력 사용
                                     # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
     use_transformer: True # True -> transformer, False -> gru
-    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
+    n_transformers: 2 # transfomer block 몇개 중첩으로 사용할건지
 
     use_small_data: False # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
 
