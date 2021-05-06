@@ -81,13 +81,13 @@ TRADE:
     weight_decay: 0.01
     num_train_epochs: 2
     data_dir: /opt/ml/input/data/train_dataset
-    model_dir: ./results
+    model_dir: /opt/ml/p3-dst-dts/dohoon/code/model
     train_batch_size: 16
     eval_batch_size: 32
     adam_epsilon: !!python/float 1e-08
     max_grad_norm: 1.0
     random_seed: 42
-    use_amp: True
+    use_amp: False
     model_name_or_path: monologg/koelectra-base-v3-discriminator
     vocab_size: 35000
     hidden_dropout_prob: 0.1
@@ -99,6 +99,6 @@ TRADE:
     device_pref: cuda
     use_small_data: True
 
-    save_model: False
+    save_model: True
     train_log_step: 50
     train_running_loss_len: 50

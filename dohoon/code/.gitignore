@@ -1,4 +1,5 @@
 results/
+model/
 predictions/
 etc/
 conf2.yml
