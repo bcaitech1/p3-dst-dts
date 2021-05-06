@@ -207,7 +207,8 @@ class SlotGenerator(nn.Module):
             _, w_idx = p_final.max(-1)
 
             if teacher is not None:
-                w = self.embedding(teacher[:, :, k]).transpose(0, 1).reshape(batch_size * J, 1, -1)
+                # w = self.embedding(teacher[:, :, k]).transpose(0, 1).reshape(batch_size * J, 1, -1)
+                w = self.embedding(teacher[:, :, k]).reshape(batch_size * J, 1, -1)
             else:
                 w = self.embedding(w_idx).unsqueeze(1)  # B,1,D
             if k == 0:

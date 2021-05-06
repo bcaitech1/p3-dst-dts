@@ -71,6 +71,15 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology, dev_labels=None):
             max_seq_length=args.max_seq_length,
             model_name_or_path=args.model_name_or_path,
         )
+    elif args.preprocessor == 'SUMBTGenPreprocessor':
+        user_first = True
+        dialogue_level = True
+        max_turn = max([len(e['dialogue']) for e in train_data])
+        processor_kwargs = AttrDict(
+            max_turn_length=max_turn,
+            max_seq_length=args.max_seq_length,
+            model_name_or_path=args.model_name_or_path,
+        )
     else:
         raise NotImplementedError()
 
@@ -92,12 +101,14 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology, dev_labels=None):
 
     # Define Preprocessor
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
+    if args.model_class == 'SUMBT_Gen':
+        tokenizer.add_special_tokens({'bos_token': '<BOS>'})
     processor = getattr(import_module('preprocessor'), args.preprocessor)(
         slot_meta, tokenizer, **processor_kwargs
     )
     args.vocab_size = len(tokenizer)
 
-    if args.preprocessor == 'TRADEPreprocessor':
+    if args.preprocessor == 'TRADEPreprocessor' or args.preprocessor == 'SUMBTGenPreprocessor':
         args.n_gate = len(processor.gating2id) # gating 갯수 none, dontcare, ptr
 
     # Extracting Featrues
@@ -154,6 +165,14 @@ def get_model(args, tokenizer, ontology, slot_meta):
             num_labels=num_labels,
             device=args.device,
         )
+    elif args.ModelName == 'SUMBT_Gen':
+        slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)
+        num_labels = [len(s) for s in slot_values_ids]
+        
+        model_kwargs = AttrDict(
+            num_slots=len(slot_values_ids),
+            device=args.device,
+        )
     else:
         raise NotImplementedError()
 
@@ -173,5 +192,10 @@ def get_model(args, tokenizer, ontology, slot_meta):
         print('Initializing slot value lookup --------------')
         model.initialize_slot_value_lookup(slot_values_ids, slot_type_ids)  # Tokenized Ontology의 Pre-encoding using BERT_SV        
         print('Finished initializing slot value lookup -----')
+    elif args.ModelName == 'SUMBT':
+        print('Initializing slot value lookup --------------')
+        model.initialize_slot_value_lookup(slot_type_ids)  # Tokenized Ontology의 Pre-encoding using BERT_SV        
+        print('Finished initializing slot value lookup -----')
+
 
     return model

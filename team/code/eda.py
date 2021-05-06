@@ -7,7 +7,7 @@ import matplotlib as mpl
 import os
 
 #그래프 저장 장소 확인
-directory="/opt/ml/graph"
+directory="/opt/ml/project/team/code/graph"
 if not os.path.exists(directory):
         os.makedirs(directory)
 
