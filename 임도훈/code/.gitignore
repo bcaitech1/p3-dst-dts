@@ -1,7 +1,12 @@
+results/
+predictions/
 etc/
 conf2.yml
 wandb
 configs/
+domain_graph_plot_ep*.png
+domain_*.png
+wrong_trend.png
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 

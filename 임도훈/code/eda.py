@@ -52,14 +52,12 @@ def draw_EDA(name : str, counter: dict,o_counter: dict, epoch: int):
         o_counter (dict): [getOriginal_Slot_Value_distribution_counter의 정답dict 반환값]
         epoch (int): [epoch]
     """
-    
-
     counter=dict(sorted(counter.items()))
     o_counter=dict(sorted(o_counter.items()))
     
     #domain & slot EDA can run here
     if name!= "value":
-        plt.figure(figsize=(12,5))
+        plt.figure(figsize=(22,10))
         plt.subplot(1,2,1)
         plt.title(f'wrong num per {name} ep:{epoch}')
         plt.plot(o_counter.keys(),[counter.get(slot,0) for slot in o_counter.keys()], label="wrong")
@@ -72,8 +70,7 @@ def draw_EDA(name : str, counter: dict,o_counter: dict, epoch: int):
         percentage_of_wrong=np.array([counter.get(slot,0) for slot in o_counter.keys()])/np.array(list(o_counter.values()))
         plt.subplot(1,2,2)
         plt.title(f'wrong percentage per {name} ep:{epoch}')
-        plt.bar(o_counter.keys(),percentage_of_wrong)
-        plt.xticks(rotation=90)
+        plt.barh(list(o_counter.keys())[::-1],percentage_of_wrong[::-1])
         #현재 디렉토리에 사진 저장
         plt.savefig(f'{directory}/{name}_percent_barplot_ep{epoch}.png')
         plt.show()
@@ -81,7 +78,7 @@ def draw_EDA(name : str, counter: dict,o_counter: dict, epoch: int):
         #오답의 개수 상위 30 종류의 value 값만 이용 
         counter=dict(sorted(counter.items(),key=lambda x:x[1],reverse=True)[:30])
         
-        plt.figure(figsize=(12,5))
+        plt.figure(figsize=(22,10))
         plt.subplot(1,2,1)
         plt.title(f'top 30 wrong {name} num graph ep:{epoch}')
         plt.plot(counter.keys(),counter.values(), label="wrong")
@@ -92,9 +89,8 @@ def draw_EDA(name : str, counter: dict,o_counter: dict, epoch: int):
         percentage_of_wrong=np.array(list(counter.values()))/np.array([o_counter.get(value,0) for value in counter.keys()])
         plt.subplot(1,2,2)
         plt.title(f'wrong percentage per {name} ep:{epoch}')
-        plt.bar(counter.keys(),percentage_of_wrong)
+        plt.barh(list(counter.keys())[::-1],percentage_of_wrong[::-1])
         #         현재 디렉토리에 사진 저장
-        plt.xticks(rotation=90)
         plt.savefig(f'{directory}/{name}_percent_barplot_ep{epoch}.png')
         plt.show()
 
