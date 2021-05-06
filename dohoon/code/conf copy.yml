@@ -1,4 +1,4 @@
-ModelName : TRADE   # {SUMBT, TRADE}
+ModelName : SUMBT   # {SUMBT, TRADE}
 
 wandb :
     using: False

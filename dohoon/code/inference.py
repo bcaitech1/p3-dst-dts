@@ -147,7 +147,64 @@ if __name__ == "__main__":
     
     json.dump(
         predictions,
-        open(f"{args.output_dir}/predictions.csv", "w"),
+        open(f"{args.output_dir}/predictions2.csv", "w"),
+        indent=2,
+        ensure_ascii=False,
+    )
+else :
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", type=str, default='/opt/ml/input/data/eval_dataset')
+    parser.add_argument("--model_dir", type=str, default='/opt/ml/p3-dst-dts/dohoon/code/model/model-best.bin')
+    parser.add_argument("--output_dir", type=str, default='/opt/ml/p3-dst-dts/dohoon/code/predictions')
+    parser.add_argument("--eval_batch_size", type=int, default=4)
+    args = parser.parse_args()
+    
+    model_dir_path = os.path.dirname(args.model_dir)
+    eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
+    config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
+    slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
+    ontology = json.load(open(f"{model_dir_path}/edit_ontology_metro.json", "r"))
+
+    config = argparse.Namespace(**config)
+    config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
+
+    tokenizer, processor, eval_features, _ = get_stuff(config,
+                 eval_data, None, slot_meta, ontology)
+
+    eval_data = WOSDataset(eval_features)
+    eval_sampler = SequentialSampler(eval_data)
+    eval_loader = DataLoader(
+        eval_data,
+        batch_size=args.eval_batch_size,
+        sampler=eval_sampler,
+        collate_fn=processor.collate_fn,
+    )
+    print("# eval:", len(eval_data))
+
+    model =  get_model(config, tokenizer, ontology, slot_meta)
+
+    ckpt = torch.load(args.model_dir, map_location="cpu")
+    model.load_state_dict(ckpt)
+    model.to(device)
+    print("Model is loaded")
+
+    if config.ModelName == 'TRADE':
+        inference_func = trade_inference
+    elif config.ModelName == 'SUMBT':
+        inference_func = sumbt_inference
+    else:
+        raise NotImplementedError()
+
+    predictions = inference_func(model, eval_loader, processor, device, config.use_amp)
+    
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
+    
+    json.dump(
+        predictions,
+        open(f"{args.output_dir}/predictions2.csv", "w"),
         indent=2,
         ensure_ascii=False,
     )
