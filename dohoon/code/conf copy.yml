@@ -1,4 +1,4 @@
-ModelName : SUMBT   # {SUMBT, TRADE}
+ModelName : TRADE   # {SUMBT, TRADE}
 
 wandb :
     using: False
@@ -79,7 +79,7 @@ TRADE:
     learning_rate: 0.0001
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 2
+    num_train_epochs: 10
     data_dir: /opt/ml/input/data/train_dataset
     model_dir: /opt/ml/p3-dst-dts/dohoon/code/model
     train_batch_size: 16
@@ -97,7 +97,7 @@ TRADE:
     preprocessor: TRADEPreprocessor
     model_class: TRADE
     device_pref: cuda
-    use_small_data: True
+    use_small_data: False
 
     save_model: True
     train_log_step: 50
