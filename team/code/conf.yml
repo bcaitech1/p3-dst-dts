@@ -1,4 +1,4 @@
-ModelName : TRADE   # {SUMBT, TRADE}
+ModelName : SUMBT    # {SUMBT, TRADE}
 
 wandb :
     using: False
@@ -6,17 +6,16 @@ wandb :
     entity: rolypolyvg295
     tags: 
         - v0
-        - trade_custom_test
+        - gen_only
 
 SUMBT:
-    hidden_dim: 600
+    hidden_dim: 300
     learning_rate: !!python/float 5e-5
     warmup_ratio: 0.1
     weight_decay: 0.01
     num_train_epochs: 10
     data_dir: /opt/ml/input/data/train_dataset
-    # model_dir: /opt/ml/project/team/code/results
-    model_dir: /opt/ml/p3-dst-dts/team/code/results
+    model_dir: /opt/ml/project/team/code/results
     train_batch_size: 4
     eval_batch_size: 4
     adam_epsilon: !!python/float 1e-08
@@ -26,36 +25,35 @@ SUMBT:
     model_name_or_path: dsksd/bert-ko-small-minimal
     num_rnn_layers: 1
     zero_init_rnn: False
-    max_seq_length: 128
+    max_seq_length: 64
     max_label_length: 12
-    attn_head: 8
+    attn_head: 4
     fix_utterance_encoder: False
     task_name: sumbtgru
     distance_metric: euclidean
     preprocessor: SUMBTPreprocessor
     model_class: SUMBT
-    device_pref: cuda
+    device_pref: cpu
     use_larger_slot_encoding: True  # True -> [max_label_length, emb_dim]만큼 slot_emb에 사용
                                     #    nlp 전체 출력 사용
                                     # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
     use_transformer: True # True -> transformer, False -> gru
-    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
+    n_transformers: 2 # transfomer block 몇개 중첩으로 사용할건지
 
-    use_small_data: False # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
+    use_small_data: True # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
 
     save_model: False
     train_log_step: 50
     train_running_loss_len: 50
 
-    use_generation_only: True
-    use_gen_dialog_only: False
+    use_domain_slot: basic # {basic | gen | cat}
 
 TRADE:
     hidden_size: 768
     learning_rate: !!python/float 1e-04
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 10
+    num_train_epochs: 30
     data_dir: /opt/ml/input/data/train_dataset
     model_dir: /opt/ml/project/team/code/results
     train_batch_size: 16
@@ -63,7 +61,7 @@ TRADE:
     adam_epsilon: !!python/float 1e-08
     max_grad_norm: 1.0
     random_seed: 42
-    use_amp: True
+    use_amp: False
     model_name_or_path: monologg/koelectra-base-v3-discriminator
     vocab_size: 35000
     hidden_dropout_prob: 0.1
@@ -72,12 +70,11 @@ TRADE:
     n_gate: 3
     preprocessor: TRADEPreprocessor
     model_class: TRADE
-    device_pref: cpu
+    device_pref: cuda
     use_small_data: False
 
-    save_model: False
+    save_model: True
     train_log_step: 50
     train_running_loss_len: 50
 
-    use_generation_only: True
-    use_gen_dialog_only: True
+    use_domain_slot: gen # {basic | gen | cat}
