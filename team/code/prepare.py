@@ -16,7 +16,7 @@ def get_data(args):
     if args.use_small_data:
         data = data[:100]
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
+    ontology = json.load(open(args.ontology_root))
 
     if args.use_generation_only:
         print(f'Using only {" ".join(gen_slot_meta)}')
