@@ -66,7 +66,7 @@ if __name__ == "__main__":
     # Data Loading
     train_data_file = f"{args.data_dir}/train_dials.json"
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
+    ontology = json.load(open(f"{args.data_dir}/edit_ontology_metro.json"))
     train_data, dev_data, dev_labels = load_dataset(train_data_file,
                  use_small=args.use_small_data)
 
