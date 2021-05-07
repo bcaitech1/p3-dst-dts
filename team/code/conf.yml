@@ -13,7 +13,7 @@ SUMBT:
     learning_rate: !!python/float 5e-5
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 10
+    num_train_epochs: 2
     data_dir: /opt/ml/input/data/train_dataset
     model_dir: /opt/ml/project/team/code/results
     train_batch_size: 4
@@ -33,7 +33,7 @@ SUMBT:
     distance_metric: euclidean
     preprocessor: SUMBTPreprocessor
     model_class: SUMBT
-    device_pref: cpu
+    device_pref: cuda
     use_larger_slot_encoding: True  # True -> [max_label_length, emb_dim]만큼 slot_emb에 사용
                                     #    nlp 전체 출력 사용
                                     # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
@@ -46,14 +46,16 @@ SUMBT:
     train_log_step: 50
     train_running_loss_len: 50
 
-    use_domain_slot: basic # {basic | gen | cat}
+    use_domain_slot: gen # {basic | gen | cat} basic 다 사용,
+                            # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
+                            # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
 
 TRADE:
     hidden_size: 768
     learning_rate: !!python/float 1e-04
     warmup_ratio: 0.1
     weight_decay: 0.01
-    num_train_epochs: 30
+    num_train_epochs: 2
     data_dir: /opt/ml/input/data/train_dataset
     model_dir: /opt/ml/project/team/code/results
     train_batch_size: 16
@@ -71,10 +73,10 @@ TRADE:
     preprocessor: TRADEPreprocessor
     model_class: TRADE
     device_pref: cuda
-    use_small_data: False
+    use_small_data: True
 
-    save_model: True
+    save_model: False
     train_log_step: 50
     train_running_loss_len: 50
 
-    use_domain_slot: gen # {basic | gen | cat}
+    use_domain_slot: cat # {basic | gen | cat}

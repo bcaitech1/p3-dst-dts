@@ -9,7 +9,7 @@ from torch.cuda.amp import autocast
 from tqdm.auto import tqdm
 
 from data_utils import WOSDataset
-from prepare import get_model, get_stuff
+from prepare import get_model, get_stuff, filter_inference
 
 from training_recorder import RunningLossRecorder
 
@@ -112,6 +112,8 @@ if __name__ == "__main__":
 
     config = argparse.Namespace(**config)
     config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
+
+    eval_data, slot_meta, ontology = filter_inference(config, eval_data, slot_meta, ontology)
 
     tokenizer, processor, eval_features, _ = get_stuff(config,
                  eval_data, None, slot_meta, ontology)
