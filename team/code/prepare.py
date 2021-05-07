@@ -15,6 +15,7 @@ def get_data(args):
     data = json.load(open(train_data_file))
     if args.use_small_data:
         data = data[:100]
+        
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
     ontology = json.load(open(args.ontology_root))
 
