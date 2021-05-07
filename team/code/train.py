@@ -18,8 +18,8 @@ from data_utils import (WOSDataset, load_dataset,
                         seed_everything)
 from evaluation import _evaluation
 
-from train_loop import trade_train_loop, submt_train_loop, sumb_gen_train_loop
-from inference import trade_inference, sumbt_inference, sumbt_gen_inference 
+from train_loop import trade_train_loop, submt_train_loop
+from inference import trade_inference, sumbt_inference 
 
 from prepare import get_data, get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
@@ -96,6 +96,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
         collate_fn=processor.collate_fn,
     )
+    
 
     dev_data = WOSDataset(dev_features)
     dev_sampler = SequentialSampler(dev_data)
@@ -169,11 +170,6 @@ if __name__ == "__main__":
         loss_fnc = SUBMT_Loss()
         train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = sumbt_inference
-    elif args.ModelName == 'SUMBT_Gen':
-        train_loop = sumb_gen_train_loop
-        loss_fnc = Trade_Loss(tokenizer.pad_token_id, args.n_gate)
-        train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
-        inference_func = sumbt_gen_inference
     else:
         raise NotImplementedError()
     
@@ -262,5 +258,5 @@ if __name__ == "__main__":
 
         print()
         # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
-    print(f"Best checkpoint: {best_checkpoint}",)
-    draw_WrongTrend(wrong_list)
+    # print(f"Best checkpoint: {best_checkpoint}",)
+    # draw_WrongTrend(wrong_list)

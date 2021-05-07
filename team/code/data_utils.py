@@ -29,15 +29,6 @@ class OpenVocabDSTFeature:
     gating_id: List[int]
     target_ids: Optional[Union[List[int], List[List[int]]]]
 
-@dataclass
-class OpenTurnVocabDSTFeature:
-    guid: str
-    input_ids: List[int]
-    segment_ids: List[int]
-    num_turn: int
-    gating_ids: List[int]
-    target_ids: Optional[Union[List[int], List[List[int]]]]
-
 
 class WOSDataset(Dataset):
     def __init__(self, features):

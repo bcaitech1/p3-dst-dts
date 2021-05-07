@@ -93,51 +93,6 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
     else:
         return predictions
 
-def sumbt_gen_inference(model, eval_loader, processor, device, use_amp=False,
-        loss_fnc=None):
-    model.eval()
-    predictions = {}
-    pbar = tqdm(eval_loader, total=len(eval_loader), file=sys.stdout)
-    loss_recorder = RunningLossRecorder(len(eval_loader))
-    for batch in pbar:
-        input_ids, segment_ids, input_masks, target_ids, gating_ids, num_turns, guids = \
-            [b.to(device) if not isinstance(b, list) else b for b in batch]
-
-        with torch.no_grad():
-            with autocast(enabled=use_amp):
-                # all_point_outputs [B, M, J, G, V]
-                # all_gate_outputs [B, M, J, n_gate]
-                all_point_outputs, all_gate_outputs = model(
-                    input_ids, segment_ids, input_masks, target_ids.size(-1)
-                )
-
-
-            if loss_fnc is not None:
-                with autocast(enabled=use_amp):
-                    loss_dict = loss_fnc(all_point_outputs, all_gate_outputs, 
-                        target_ids, gating_ids)
-
-                cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
-                loss_recorder.add(cpu_loss_dict)
-
-            _, generated_ids = all_point_outputs.max(-1)
-            _, gated_ids = all_gate_outputs.max(-1)
-
-
-        for guid, gate, gen, num_turn in \
-            zip(guids, gated_ids.tolist(), generated_ids.tolist(), num_turns):
-            pred_states = processor.recover_state(gate, gen, num_turn)
-
-            for t_idx, pred_state in enumerate(pred_states):
-                pred_state = postprocess_state(pred_state)
-                predictions[f'{guid}-{t_idx}'] = pred_state
-    pbar.close()
-
-    if loss_fnc is not None:
-        return predictions, loss_recorder.loss()[1]
-    else:
-        return predictions
-
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -182,8 +137,6 @@ if __name__ == "__main__":
         inference_func = trade_inference
     elif config.ModelName == 'SUMBT':
         inference_func = sumbt_inference
-    elif config.ModelName == 'SUMBT_Gen':
-        inference_func = sumbt_gen_inference
     else:
         raise NotImplementedError()
 
