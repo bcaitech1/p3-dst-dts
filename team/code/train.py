@@ -5,13 +5,16 @@ import random
 import yaml
 import pprint
 import sys
+from copy import deepcopy
 from attrdict import AttrDict
 from collections import Counter,defaultdict
+
 import torch
 import torch.nn as nn
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
+
 from transformers import AdamW, get_linear_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 
 from data_utils import (WOSDataset, load_dataset,
@@ -24,7 +27,7 @@ from inference import trade_inference, sumbt_inference
 from prepare import get_data, get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
 
-from eda import get_Domain_Slot_Value_distribution_counter, draw_EDA,draw_WrongTrend
+from eda import *
 
 import wandb_stuff
 import parser_maker
@@ -39,18 +42,24 @@ if __name__ == "__main__":
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
-    config_name = config_args.config
+    config_root = config_args.config
     config_args.config = None
-    print(f'Using config: {config_name}')
+    print(f'Using config: {config_root}')
 
-    with open(config_name) as f:
+    with open(config_root) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f"Currnet Using Model : {conf['ModelName']}")
 
     model_name = conf['ModelName']
-    args = argparse.Namespace(**conf[model_name])
+
+    args_dict = deepcopy(conf['SharedPrams'])
+    args_dict.update(conf[model_name])
+
+    args = argparse.Namespace(**args_dict)
     args = parser_maker.update_config(args, config_args)
+
+
     args.ModelName = conf['ModelName']
     basic_args = args
     args = wandb_stuff.setup(conf, args)
@@ -155,7 +164,7 @@ if __name__ == "__main__":
 
     json.dump(
         ontology,
-        open(f"{args.model_dir}/ontology.json", "w"),
+        open(f"{args.model_dir}/edit_ontology_metro.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
