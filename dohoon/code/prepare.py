@@ -1,10 +1,18 @@
 from attrdict import AttrDict
 from importlib import import_module
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
 from tqdm.auto import tqdm
 import torch
 from transformers import AutoTokenizer
-from data_utils import get_examples_from_dialogues
+from data_utils import (
+    load_dataset, 
+    get_examples_from_dialogues, 
+    convert_state_dict, 
+    DSTInputExample, 
+    OpenVocabDSTFeature, 
+    DSTPreprocessor, 
+    WOSDataset)
 
 def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     if args.preprocessor == 'TRADEPreprocessor':
@@ -87,7 +95,9 @@ def get_model(args, tokenizer, ontology, slot_meta):
             )
 
         model_kwargs = AttrDict(
-            tokenized_slot_meta=tokenized_slot_meta,
+            slot_vocab=tokenized_slot_meta,
+            # tokenized_slot_meta=tokenized_slot_meta,
+            slot_meta=slot_meta
         )
     elif args.ModelName == 'SUMBT':
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)
@@ -107,12 +117,12 @@ def get_model(args, tokenizer, ontology, slot_meta):
     pbar.set_description(f'Making {args.model_class} model -- DONE')    
     pbar.close()
 
-    if args.ModelName == 'TRADE':
-        pbar = tqdm(desc='Setting subword embedding -- waiting...', bar_format='{desc} -> {elapsed}')
-        model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화    
-        pbar.set_description('Setting subword embedding -- DONE')
-        pbar.close()
-    elif args.ModelName == 'SUMBT':
+    # if args.ModelName == 'TRADE':
+    #     pbar = tqdm(desc='Setting subword embedding -- waiting...', bar_format='{desc} -> {elapsed}')
+    #     model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화    
+    #     pbar.set_description('Setting subword embedding -- DONE')
+    #     pbar.close()
+    if args.ModelName == 'SUMBT':
         print('Initializing slot value lookup --------------')
         model.initialize_slot_value_lookup(slot_values_ids, slot_type_ids)  # Tokenized Ontology의 Pre-encoding using BERT_SV        
         print('Finished initializing slot value lookup -----')

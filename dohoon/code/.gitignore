@@ -1,5 +1,6 @@
 results/
-model/
+model/*.json
+model/*.bin
 predictions/
 etc/
 conf2.yml
