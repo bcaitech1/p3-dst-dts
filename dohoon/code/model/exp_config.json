@@ -3,7 +3,7 @@
   "learning_rate": 3e-05,
   "warmup_ratio": 0.1,
   "weight_decay": 0.01,
-  "num_train_epochs": 10,
+  "num_train_epochs": 15,
   "data_dir": "/opt/ml/input/data/train_dataset",
   "model_dir": "/opt/ml/p3-dst-dts/dohoon/code/model",
   "train_batch_size": 16,
