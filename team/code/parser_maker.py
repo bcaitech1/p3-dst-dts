@@ -38,6 +38,9 @@ conf_keys = AttrDict(
     model_class=str,
     
     use_domain_slot=str,
+    use_decoder_ts=bool,
+    decoder_n_heads=int,
+    decoder_n_layers=int,
 )
 
 def update_parser(parser):
