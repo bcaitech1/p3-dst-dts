@@ -1,4 +1,4 @@
-ModelName : TRADE   # {SUMBT, TRADE}
+ModelName : SUMBT    # {SUMBT, TRADE}
 
 wandb :
     using: False
@@ -6,7 +6,7 @@ wandb :
     entity: rolypolyvg295
     tags: 
         - v0
-        - trade_custom_test
+        - gen_only
 
 SharedPrams:
     data_dir: /opt/ml/input/data/train_dataset
@@ -18,6 +18,8 @@ SharedPrams:
     save_model: True
 
     use_small_data: True # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
+
+    task_name: sumbtgru
 
     train_log_step: 50
     train_running_loss_len: 50
@@ -34,11 +36,14 @@ SharedPrams:
     weight_decay: 0.01
 
     random_seed: 42
-
-
+    
+    use_domain_slot: gen # {basic | gen | cat} basic 다 사용,
+                            # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
+                            # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
 SUMBT:
-    hidden_dim: 600
+    hidden_dim: 300
     learning_rate: !!python/float 5e-5
+
 
     num_train_epochs: 30
     
@@ -49,13 +54,14 @@ SUMBT:
     num_rnn_layers: 1
     zero_init_rnn: False
 
+
     max_seq_length: 128
     max_label_length: 12
 
     attn_head: 8
+
     fix_utterance_encoder: False
 
-    task_name: sumbtgru
     distance_metric: euclidean
     preprocessor: SUMBTPreprocessor
     model_class: SUMBT
@@ -65,9 +71,7 @@ SUMBT:
                                     # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
     
     use_transformer: True # True -> transformer, False -> gru
-    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
-
-
+    n_transformers: 2 # transfomer block 몇개 중첩으로 사용할건지
 
 TRADE:
     hidden_size: 768
@@ -78,6 +82,7 @@ TRADE:
     train_batch_size: 16
     eval_batch_size: 32
 
+
     model_name_or_path: monologg/koelectra-base-v3-discriminator
     vocab_size: 35000
     hidden_dropout_prob: 0.1
@@ -86,6 +91,3 @@ TRADE:
     n_gate: 3
     preprocessor: TRADEPreprocessor
     model_class: TRADE
-
-
-    

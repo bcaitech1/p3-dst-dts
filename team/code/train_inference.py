@@ -151,16 +151,33 @@ if __name__ == "__main__":
     if not os.path.exists(args.model_dir):
         os.mkdir(args.model_dir)
 
+    #################################################
+
+    result_dir = f'{args.model_dir}/{args.task_name}'
+
+    if os.path.exists(f'{args.model_dir}/{args.task_name}'):
+        i = 1
+        while os.path.exists(f'{result_dir}_{i}'):
+            i += 1
+        
+        result_dir = f'{result_dir}_{i}'
+
+    os.mkdir(f'{result_dir}')
+
+    print(f'Current result dir : {result_dir}')
+
+    ################################################
+
     args_save = {k:v for k, v in args.items() if k in basic_args}
     json.dump(
         args_save,
-        open(f"{args.model_dir}/exp_config.json", "w"),
+        open(f"{result_dir}/exp_config.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
     json.dump(
         slot_meta,
-        open(f"{args.model_dir}/slot_meta.json", "w"),
+        open(f"{result_dir}/slot_meta.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
@@ -267,7 +284,7 @@ if __name__ == "__main__":
             best_checkpoint = epoch
             
             if args.save_model:
-                torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
+                torch.save(model.state_dict(), f"{result_dir}/model-best.bin")
 
         print()
         
