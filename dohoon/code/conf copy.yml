@@ -54,7 +54,7 @@ TRADE:
     data_dir: /opt/ml/input/data/train_dataset
     model_dir: /opt/ml/p3-dst-dts/dohoon/code/model
     train_batch_size: 16
-    eval_batch_size: 32
+    eval_batch_size: 8
     adam_epsilon: !!python/float 1e-08
     max_grad_norm: 1.0
     random_seed: 42
