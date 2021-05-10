@@ -139,7 +139,7 @@ class SlotGenerator(nn.Module):
                 cross_attention_type="linear",
                 n_layers=num_layers,
                 n_heads=n_heads,
-                feed_forward_dimensions=768,
+                feed_forward_dimensions=hidden_size,
                 query_dimensions=qv_dim,
                 value_dimensions=qv_dim,
             ).get()
