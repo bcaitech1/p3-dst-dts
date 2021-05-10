@@ -48,8 +48,14 @@ def filter_inference(args, data, slot_meta, ontology):
 def get_data(args):
     train_data_file = f"{args.data_dir}/train_dials.json"
     data = json.load(open(train_data_file))
+<<<<<<< HEAD
+    if args.use_small_data:
+        data = data[:100]
+        
+=======
+>>>>>>> cc0e5604e801ee555ea3a1395451026bab1931a9
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(f"{args.data_dir}/ontology.json"))
+    ontology = json.load(open(args.ontology_root))
 
     if args.use_domain_slot == 'basic':
         if args.use_small_data:
