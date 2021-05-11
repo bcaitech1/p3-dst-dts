@@ -5,10 +5,12 @@ import random
 import yaml
 import pprint
 import sys
+import copy 
 from attrdict import AttrDict
 from collections import Counter,defaultdict
 import torch
 import torch.nn as nn
+import copy
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
@@ -21,24 +23,15 @@ from eda import get_Domain_Slot_Value_distribution_counter, draw_EDA,draw_WrongT
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
-from prepare import get_stuff, get_model
+from prepare import get_data, get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
 import wandb_stuff
 import parser_maker
 from training_recorder import RunningLossRecorder
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run Experiment')
-    parser.add_argument('-c', '--config', 
-                        type=str,
-                        help="Get config file following root",
-                        default='/opt/ml/p3-dst-dts/dohoon/code/conf copy.yml')
-                        
-    parser = parser_maker.update_parser(parser)
-
-    config_args = parser.parse_args()
-    config_name = config_args.config
-    config_args.config = None
+def train(config_name: str):
+        
+    config_name = config_name
     print(f'Using config: {config_name}')
 
     with open(config_name) as f:
@@ -47,39 +40,38 @@ if __name__ == "__main__":
     print(f"Currnet Using Model : {conf['ModelName']}")
 
     model_name = conf['ModelName']
-    args = argparse.Namespace(**conf[model_name])
-    args = parser_maker.update_config(args, config_args)
+
+    args_dict = copy.deepcopy(conf['SharedPrams'])
+    args_dict.update(conf[model_name])
+
+    args = argparse.Namespace(**args_dict)
+
     args.ModelName = conf['ModelName']
     basic_args = args
     args = wandb_stuff.setup(conf, args)
     print(f'Get Args {model_name}')
     pprint.pprint({k:v for k, v in args.items()})
     print()
-    
+
     args.device = torch.device(args.device_pref if torch.cuda.is_available() else "cpu")
 
     # random seed 고정
     seed_everything(args.random_seed)
 
     # Data Loading
-    train_data_file = f"{args.data_dir}/train_dials.json"
-    slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    
-    ontology = json.load(open(f"{args.data_dir}/edit_ontology_metro.json"))
-    
-    train_data, dev_data, dev_labels = load_dataset(train_data_file,
-                 use_small=args.use_small_data)
+    data, slot_meta, ontology = get_data(args)
+    train_data, dev_data, dev_labels = load_dataset(data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
-                 train_data, dev_data, slot_meta, ontology)
-    
+                    train_data, dev_data, slot_meta, ontology)
+
     # Slot Meta tokenizing for the decoder initial inputs
     tokenized_slot_meta = []
     for slot in slot_meta:
         tokenized_slot_meta.append(
             tokenizer.encode(slot.replace("-", " "), add_special_tokens=False)
         )
-    
+
     # Model 선언
     model =  get_model(args, tokenizer, ontology, slot_meta)
     # print(f'Moving model to {args.device}')
@@ -99,7 +91,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
         collate_fn=processor.collate_fn,
     )
-    
+
 
     dev_data = WOSDataset(dev_features)
     dev_sampler = SequentialSampler(dev_data)
@@ -115,7 +107,7 @@ if __name__ == "__main__":
     print("# dev:", len(dev_data))
     print()
     print('##### START TRAINING #####')
-    
+
     # Optimizer 및 Scheduler 선언
     ### 이 부분은 SUMBT에만 있던거
     ### TODO: args.no_decay로 하면 어떨까?
@@ -175,11 +167,11 @@ if __name__ == "__main__":
         inference_func = sumbt_inference
     else:
         raise NotImplementedError()
-    
+
     scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
     total_step = 0
-    
+
     loss_recorder = RunningLossRecorder(args.train_running_loss_len)
 
     wrong_list=[] #에폭별로 wrong_answer를 담아둘 배열
@@ -256,7 +248,7 @@ if __name__ == "__main__":
             best_checkpoint = epoch
             
             if args.save_model:
-                torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
+                torch.save(model.state_dict(), f"{args.model_dir}/{args.task_name}.bin")
 
         print()
         # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
