@@ -38,8 +38,8 @@ class TRADE(nn.Module):
             config.proj_dim,
             pad_idx,
             config.use_decoder_ts,
-            configs.decoder_n_heads,
-            configs.decoder_n_layers,
+            config.decoder_n_heads,
+            config.decoder_n_layers,
         )
 
         self.decoder.set_slot_idx(tokenized_slot_meta)

@@ -98,17 +98,17 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default=None)
-    parser.add_argument("--model_dir", type=str, default=None)
+    parser.add_argument("--data_dir", type=str, default='/opt/ml/input/data/evel_dataset')
+    parser.add_argument("--model_dir", type=str, default='/opt/ml/p3-dst-dts/team/code/model')
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--eval_batch_size", type=int, default=32)
     args = parser.parse_args()
     
     model_dir_path = os.path.dirname(args.model_dir)
     eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
-    config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
-    slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
-    ontology = json.load(open(f"{model_dir_path}/ontology.json", "r"))
+    config = json.load(open(f"/opt/ml/gyujins_file/exp_config.json", "r"))
+    slot_meta = json.load(open(f"/opt/ml/input/data/eval_dataset/slot_meta.json", "r"))
+    ontology = json.load(open(f"/opt/ml/input/data/train_dataset/edit_ontology_metro.json", "r"))
 
     config = argparse.Namespace(**config)
     config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     model =  get_model(config, tokenizer, ontology, slot_meta)
 
-    ckpt = torch.load(args.model_dir, map_location="cpu")
+    ckpt = torch.load("/opt/ml/gyujins_file/model-best.bin", map_location="cpu")
     model.load_state_dict(ckpt)
     model.to(device)
     print("Model is loaded")
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     
     json.dump(
         predictions,
-        open(f"{args.output_dir}/predictions3.csv", "w"),
+        open(f"{args.output_dir}/gyus_output.csv.csv", "w"),
         indent=2,
         ensure_ascii=False,
     )

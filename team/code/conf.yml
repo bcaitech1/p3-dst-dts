@@ -1,7 +1,7 @@
 ModelName : TRADE    # {SUMBT, TRADE}
 
 wandb :
-    using: True
+    using: False
     project: dst
     entity: rolypolyvg295
     tags: 
@@ -63,7 +63,7 @@ TRADE:
     num_train_epochs: 10
 
     train_batch_size: 16
-    eval_batch_size: 32
+    eval_batch_size: 8
 
     model_name_or_path: monologg/koelectra-base-v3-discriminator
     vocab_size: 35000
