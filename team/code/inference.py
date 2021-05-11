@@ -96,6 +96,7 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device('cpu')
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default=None)
@@ -108,10 +109,11 @@ if __name__ == "__main__":
     eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
     config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
     slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
-    ontology = json.load(open(f"{model_dir_path}/ontology.json", "r"))
+    ontology = json.load(open(f"{model_dir_path}/edit_ontology_metro.json", "r"))
 
     config = argparse.Namespace(**config)
     config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
+    config.devcie = torch.device('cpu')
 
     eval_data, slot_meta, ontology = filter_inference(config, eval_data, slot_meta, ontology)
 

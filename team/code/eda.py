@@ -11,6 +11,12 @@ directory="/opt/ml/graph"
 if not os.path.exists(directory):
         os.makedirs(directory)
 
+def set_directory(new_dir):
+    global directory
+    directory= new_dir
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
 # 그래프에서 마이너스 폰트 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 #한글 폰트로 설정하기, nanum 설치 요망
