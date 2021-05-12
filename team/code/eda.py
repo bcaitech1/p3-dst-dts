@@ -8,8 +8,8 @@ import os
 import copy
 import yaml
 
-with open('/opt/ml/p3-dst-dts/dohoon/code/conf.yml') as f:
-        conf = yaml.load(f, Loader=yaml.FullLoader)
+with open('./conf.yml') as f:
+    conf = yaml.load(f, Loader=yaml.FullLoader)
 
 conf = copy.deepcopy(conf['SharedPrams'])
 #그래프 저장 장소 확인

@@ -27,9 +27,10 @@ class SUMBTPreprocessor(DSTPreprocessor):
         self.use_convert_ont = args.use_convert_ont
         self.convert_time_dict = args.convert_time_dict
         
-        self.convert_time_dict['convert'] = getattr(import_module('change_ont_value'),
+        if isinstance(self.convert_time_dict['convert'], str):
+            self.convert_time_dict['convert'] = getattr(import_module('change_ont_value'),
             self.convert_time_dict['convert'].split('.')[1])
-        self.convert_time_dict['revert'] = getattr(import_module('change_ont_value'),
+            self.convert_time_dict['revert'] = getattr(import_module('change_ont_value'),
             self.convert_time_dict['revert'].split('.')[1])
 
     def _convert_example_to_feature(self, example):
