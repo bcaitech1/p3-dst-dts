@@ -32,8 +32,8 @@ SharedPrams:
     use_generation_only: False
     use_gen_dialog_only: False
 
-    use_amp: True
-    device_pref: cuda
+    use_amp: False
+    device_pref: cpu
 
     adam_epsilon: !!python/float 1e-08
     max_grad_norm: 1.0
