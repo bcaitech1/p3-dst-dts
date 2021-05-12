@@ -31,6 +31,10 @@ SharedPrams:
     use_domain_slot: gen # {basic | gen | cat} basic 다 사용,
                             # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
                             # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
+    use_convert_ont: True
+    convert_time: time_hour_min # {none | time_hour_min}
+                                # none: 사용안함
+                                # time_hour_min: 시간 xx시 xx분
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5
