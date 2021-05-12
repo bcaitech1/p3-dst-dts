@@ -104,8 +104,8 @@ class SUMBTPreprocessor(DSTPreprocessor):
                 v = self.ontology[s][p]
                 if self.use_convert_ont:
                     if self.convert_time_dict is not None and \
-                        s in self.convert_time_dict.applied:
-                        v = self.convert_time_dict.revert(v)
+                        s in self.convert_time_dict['applied']:
+                        v = self.convert_time_dict['revert'](v)
                 if v != 'none':
                     state.append(f'{s}-{v}')
                     
