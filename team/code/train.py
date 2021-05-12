@@ -34,23 +34,6 @@ import wandb_stuff
 import parser_maker
 from training_recorder import RunningLossRecorder
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run Experiment')
-    parser.add_argument('-c', '--config', 
-                        type=str,
-                        help="Get config file following root",
-                        default='/opt/ml/git/p3-dst-dts/team/code/conf.yml')
-    parser = parser_maker.update_parser(parser)
-
-    config_args = parser.parse_args()
-    config_root = config_args.config
-    config_args.config = None
-    print(f'Using config: {config_root}')
-    
-    train(config_root)
-    
-
 def train(config_root: str):
         
     print(f'Using config: {config_root}')
@@ -280,3 +263,21 @@ def train(config_root: str):
         #     torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
     # draw_WrongTrend(wrong_list)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run Experiment')
+    parser.add_argument('-c', '--config', 
+                        type=str,
+                        help="Get config file following root",
+                        default='/opt/ml/git/p3-dst-dts/team/code/conf.yml')
+    parser = parser_maker.update_parser(parser)
+
+    config_args = parser.parse_args()
+    config_root = config_args.config
+    config_args.config = None
+    print(f'Using config: {config_root}')
+    
+    train(config_root)
+    
+
