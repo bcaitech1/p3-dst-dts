@@ -1,11 +1,19 @@
 from attrdict import AttrDict
 from importlib import import_module
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 import json
-
 from tqdm.auto import tqdm
 import torch
 from transformers import AutoTokenizer
-from data_utils import get_examples_from_dialogues
+from data_utils import (
+    load_dataset, 
+    get_examples_from_dialogues, 
+    convert_state_dict, 
+    DSTInputExample, 
+    OpenVocabDSTFeature, 
+    DSTPreprocessor, 
+    WOSDataset)
+
 
 gen_slot_meta = set(['관광-이름', '숙소-이름', '식당-이름', '택시-도착지', '택시-출발지'])
 
@@ -48,7 +56,9 @@ def filter_inference(args, data, slot_meta, ontology):
 def get_data(args):
     train_data_file = f"{args.data_dir}/train_dials.json"
     data = json.load(open(train_data_file))
-
+    if args.use_small_data:
+        data = data[:100]
+        
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
     ontology = json.load(open(args.ontology_root))
 
@@ -91,7 +101,7 @@ def get_data(args):
 
     return data, slot_meta, ontology
 
-def get_stuff(args, train_data, dev_data, slot_meta, ontology, dev_labels=None):
+def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     if args.preprocessor == 'TRADEPreprocessor':
         user_first = False
         dialogue_level = False
@@ -143,9 +153,7 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology, dev_labels=None):
 def tokenize_ontology(ontology, tokenizer, max_seq_length):
     slot_types = []
     slot_values = []
-    
-    for k in sorted(ontology):
-        v = ontology[k]
+    for k, v in ontology.items():
         tokens = tokenizer.encode(k)
         if len(tokens) < max_seq_length:
             gap = max_seq_length - len(tokens)
@@ -174,7 +182,9 @@ def get_model(args, tokenizer, ontology, slot_meta):
             )
 
         model_kwargs = AttrDict(
-            tokenized_slot_meta=tokenized_slot_meta,
+            slot_vocab=tokenized_slot_meta,
+            # tokenized_slot_meta=tokenized_slot_meta,
+            slot_meta=slot_meta
         )
     elif args.ModelName == 'SUMBT':
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)
@@ -194,12 +204,12 @@ def get_model(args, tokenizer, ontology, slot_meta):
     pbar.set_description(f'Making {args.model_class} model -- DONE')    
     pbar.close()
 
-    if args.ModelName == 'TRADE':
-        pbar = tqdm(desc='Setting subword embedding -- waiting...', bar_format='{desc} -> {elapsed}')
-        model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화    
-        pbar.set_description('Setting subword embedding -- DONE')
-        pbar.close()
-    elif args.ModelName == 'SUMBT':
+    # if args.ModelName == 'TRADE':
+    #     pbar = tqdm(desc='Setting subword embedding -- waiting...', bar_format='{desc} -> {elapsed}')
+    #     model.set_subword_embedding(args.model_name_or_path)  # Subword Embedding 초기화    
+    #     pbar.set_description('Setting subword embedding -- DONE')
+    #     pbar.close()
+    if args.ModelName == 'SUMBT':
         print('Initializing slot value lookup --------------')
         model.initialize_slot_value_lookup(slot_values_ids, slot_type_ids)  # Tokenized Ontology의 Pre-encoding using BERT_SV        
         print('Finished initializing slot value lookup -----')
