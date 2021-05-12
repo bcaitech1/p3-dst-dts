@@ -46,7 +46,7 @@ def load_dataset(data, dev_split=0.1):
     num_data = len(data)
     num_dev = int(num_data * dev_split)
     if not num_dev:
-        return data, [], None  # no dev dataset
+        return data, [], None, None  # no dev dataset
 
     dom_mapper = defaultdict(list)
     for d in data:
@@ -80,7 +80,7 @@ def load_dataset(data, dev_split=0.1):
 
             dev_labels[guid_t] = state
 
-    return train_data, dev_data, dev_labels
+    return train_data, dev_data, dev_labels, dev_idx
 
 
 def set_seed(seed):
