@@ -267,8 +267,8 @@ if __name__ == "__main__":
             if args.save_model:
                 torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
 
-        if epoch % 5 == 4:
-            print(f'saving to {args.model_dir}/model-{epoch}.bin"')
-            torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
+        # if epoch % 5 == 4:
+        #     print(f'saving to {args.model_dir}/model-{epoch}.bin"')
+        #     torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
-    draw_WrongTrend(wrong_list)
+    # draw_WrongTrend(wrong_list)

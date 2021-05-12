@@ -1,5 +1,6 @@
 from data_utils import convert_state_dict
 from data_utils import OntologyDSTFeature, DSTPreprocessor, _truncate_seq_pair
+from importlib import import_module
 from tqdm.auto import tqdm
 import torch
 
@@ -25,6 +26,11 @@ class SUMBTPreprocessor(DSTPreprocessor):
 
         self.use_convert_ont = args.use_convert_ont
         self.convert_time_dict = args.convert_time_dict
+        
+        self.convert_time_dict['convert'] = getattr(import_module('change_ont_value'),
+            self.convert_time_dict['convert'].split('.')[1])
+        self.convert_time_dict['revert'] = getattr(import_module('change_ont_value'),
+            self.convert_time_dict['revert'].split('.')[1])
 
     def _convert_example_to_feature(self, example):
         guid = example[0].guid.rsplit("-", 1)[0]  # dialogue_idx
