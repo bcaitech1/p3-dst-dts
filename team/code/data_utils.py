@@ -169,11 +169,12 @@ def _truncate_seq_pair(tokens_a, tokens_b, max_length):
             tokens_b.pop()
 
 
-def get_examples_from_dialogue(dialogue, user_first=False):
+def get_examples_from_dialogue(dialogue, user_first=False, use_sys_usr_sys=False):
     guid = dialogue["dialogue_idx"]
     examples = []
     history = []
     d_idx = 0
+    len_diag = len(dialogue["dialogue"])
     for idx, turn in enumerate(dialogue["dialogue"]):
         if turn["role"] != "user":
             continue
@@ -183,10 +184,17 @@ def get_examples_from_dialogue(dialogue, user_first=False):
         else:
             sys_utter = ""
 
+        if idx + 1 < len_diag:
+            next_utter = dialogue["dialogue"][idx + 1]["text"]
+        else:
+            next_utter = ""
+
         user_utter = turn["text"]
         state = turn.get("state")
         context = deepcopy(history)
-        if user_first:
+        if use_sys_usr_sys:
+            current_turn = [sys_utter, user_utter, next_utter]
+        elif user_first:
             current_turn = [user_utter, sys_utter]
         else:
             current_turn = [sys_utter, user_utter]
@@ -204,11 +212,13 @@ def get_examples_from_dialogue(dialogue, user_first=False):
     return examples
 
 
-def get_examples_from_dialogues(data, user_first=False, dialogue_level=False, which=''):
+def get_examples_from_dialogues(data, user_first=False, use_sys_usr_sys=False,
+         dialogue_level=False, which=''):
     examples = []
     pbar = tqdm(data, desc=f'Getting {which} examples from dialogues')
     for d in pbar:
-        example = get_examples_from_dialogue(d, user_first=user_first)
+        example = get_examples_from_dialogue(d, user_first=user_first, 
+                use_sys_usr_sys=use_sys_usr_sys)
         if dialogue_level:
             examples.append(example)
         else:

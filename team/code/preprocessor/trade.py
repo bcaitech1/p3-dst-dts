@@ -34,10 +34,13 @@ class TRADEPreprocessor(DSTPreprocessor):
         # 1 2 3 sep 2 3 -> 0 0 0 0 1 1  이렇게 SEP token 까지
         np_input_id = np.array(input_id)
         sep_token_idxs = np.where(np_input_id == self.src_tokenizer.sep_token_id)[0]
-        sep_token_idxs = sep_token_idxs.reshape(-1, 2)
         seg_tmp = np.zeros(len(np_input_id), dtype=np.int)
-        for start, end in sep_token_idxs:
+        cur_idx = 1
+        while cur_idx < len(sep_token_idxs):
+            start = sep_token_idxs[cur_idx-1]
+            end = sep_token_idxs[cur_idx]
             seg_tmp[start+1:end+1] = 1
+            cur_idx += 2
         segment_id = seg_tmp.tolist()
 
         max_length = self.max_seq_length - 1

@@ -140,12 +140,14 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
         raise NotImplementedError()
 
     train_examples = get_examples_from_dialogues(
-        train_data, user_first=user_first, dialogue_level=dialogue_level, which='train'
+        train_data, user_first=user_first, use_sys_usr_sys=args.use_sys_usr_sys_turn,
+             dialogue_level=dialogue_level, which='train'
     )
 
     if dev_data is not None:
         dev_examples = get_examples_from_dialogues(
-            dev_data, user_first=user_first, dialogue_level=dialogue_level, which='val'
+            dev_data, user_first=user_first, use_sys_usr_sys=args.use_sys_usr_sys_turn,
+            dialogue_level=dialogue_level, which='val'
         )
 
     # Define Preprocessor
