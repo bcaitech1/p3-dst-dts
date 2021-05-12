@@ -8,7 +8,7 @@ import os
 import copy
 import yaml
 
-with open('./conf.yml') as f:
+with open('./code/conf.yml') as f:
     conf = yaml.load(f, Loader=yaml.FullLoader)
 
 conf = copy.deepcopy(conf['SharedPrams'])

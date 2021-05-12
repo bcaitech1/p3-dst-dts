@@ -68,7 +68,8 @@ def get_data(args):
             print(f'Change Time Format: xx:xx -> {convert_time_dict.example}')
             print(f'Change {"  ".join(convert_time_dict.applied)}')
             for cat in convert_time_dict.applied:
-                ontology[cat] = [convert_time_dict.convert(x) for x in ontology[cat]]
+                if cat in ontology:
+                    ontology[cat] = [convert_time_dict.convert(x) for x in ontology[cat]]
             args.convert_time_dict = convert_time_dict
         else:
             args.convert_time_dict = None
