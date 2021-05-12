@@ -22,10 +22,13 @@ def set_directory(new_dir):
         os.makedirs(directory)
 
 gen_slot_meta = set(['관광-이름', '숙소-예약 기간', '숙소-예약 명수', '숙소-이름', '식당-예약 명수', '식당-이름', '택시-도착지', '택시-출발지', '지하철-도착지', '지하철-출발지'])
+time_slot_meta = set(['식당-예약 시간', '지하철-출발 시간', '택시-도착 시간', '택시-출발 시간'])
 
 def get_active_slot_meta(args, slot_meta):
     if args.use_domain_slot == 'gen':
         filter_slot_meta = gen_slot_meta
+    elif args.use_domain_slot == 'time':
+        filter_slot_meta = time_slot_meta
     elif args.use_domain_slot == 'cat':
         filter_slot_meta = set(slot_meta) - gen_slot_meta
     else:
