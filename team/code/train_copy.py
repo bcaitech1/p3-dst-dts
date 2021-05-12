@@ -5,35 +5,33 @@ import random
 import yaml
 import pprint
 import sys
-import copy
 from copy import deepcopy
-
 from attrdict import AttrDict
 from collections import Counter,defaultdict
 
 import torch
 import torch.nn as nn
-
-from torch.cuda.amp import GradScaler
+from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
 
 from transformers import AdamW, get_linear_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 
-from data_utils import (WOSDataset, load_dataset,
-                        seed_everything)
+from data_utils import (WOSDataset, load_dataset, seed_everything)
 from evaluation import _evaluation
-from eda import *
+
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
 from prepare import get_data, get_stuff, get_model
 from losses import Trade_Loss, SUBMT_Loss
 
+from eda import *
+
 import wandb_stuff
 import parser_maker
+import inference
 from training_recorder import RunningLossRecorder
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run Experiment')
@@ -47,13 +45,6 @@ if __name__ == "__main__":
     config_root = config_args.config
     config_args.config = None
     print(f'Using config: {config_root}')
-    
-    train(config_root)
-    
-
-def train(config_root: str):
-        
-    print(f'Using config: {config_root}')
 
     with open(config_root) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
@@ -62,11 +53,11 @@ def train(config_root: str):
 
     model_name = conf['ModelName']
 
-
     args_dict = deepcopy(conf['SharedPrams'])
     args_dict.update(conf[model_name])
 
     args = argparse.Namespace(**args_dict)
+    args = parser_maker.update_config(args, config_args)
 
 
     args.ModelName = conf['ModelName']
@@ -75,7 +66,7 @@ def train(config_root: str):
     print(f'Get Args {model_name}')
     pprint.pprint({k:v for k, v in args.items()})
     print()
-
+    
     args.device = torch.device(args.device_pref if torch.cuda.is_available() else "cpu")
 
     # random seed 고정
@@ -86,15 +77,15 @@ def train(config_root: str):
     train_data, dev_data, dev_labels = load_dataset(data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
-                    train_data, dev_data, slot_meta, ontology)
-
+                 train_data, dev_data, slot_meta, ontology, dev_labels=dev_labels)
+    
     # Slot Meta tokenizing for the decoder initial inputs
     tokenized_slot_meta = []
     for slot in slot_meta:
         tokenized_slot_meta.append(
             tokenizer.encode(slot.replace("-", " "), add_special_tokens=False)
         )
-
+    
     # Model 선언
     model =  get_model(args, tokenizer, ontology, slot_meta)
     # print(f'Moving model to {args.device}')
@@ -114,7 +105,7 @@ def train(config_root: str):
         sampler=train_sampler,
         collate_fn=processor.collate_fn,
     )
-
+    
 
     dev_data = WOSDataset(dev_features)
     dev_sampler = SequentialSampler(dev_data)
@@ -130,7 +121,7 @@ def train(config_root: str):
     print("# dev:", len(dev_data))
     print()
     print('##### START TRAINING #####')
-
+    
     # Optimizer 및 Scheduler 선언
     ### 이 부분은 SUMBT에만 있던거
     ### TODO: args.no_decay로 하면 어떨까?
@@ -146,6 +137,9 @@ def train(config_root: str):
         },
     ]
 
+    ################################
+    ######### Train step ###########
+    ################################
     n_epochs = args.num_train_epochs
     t_total = len(train_loader) * n_epochs
     warmup_steps = int(t_total * args.warmup_ratio)
@@ -173,10 +167,11 @@ def train(config_root: str):
 
     json.dump(
         ontology,
-        open(f"{args.model_dir}/edit_ontology_metro.json", "w"),
+        open(args.ontology_root, "w"),
         indent=2,
         ensure_ascii=False,
     )
+
 
     if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
@@ -190,16 +185,15 @@ def train(config_root: str):
         inference_func = sumbt_inference
     else:
         raise NotImplementedError()
-
+    
     scaler = GradScaler(enabled=args.use_amp)
     best_score, best_checkpoint = 0, 0
     total_step = 0
-
-    loss_recorder = RunningLossRecorder(args.train_running_loss_len)
-
+        
     wrong_list=[] #에폭별로 wrong_answer를 담아둘 배열
     correct_list=[] #wrong_list의 에폭별 오답률을 위해 correct_answer를 담아둘 배열
 
+    loss_recorder = RunningLossRecorder(args.train_running_loss_len)
     for epoch in range(n_epochs):
         model.train()
         pbar2 = tqdm(enumerate(train_loader), total=len(train_loader), file=sys.stdout)
@@ -245,6 +239,7 @@ def train(config_root: str):
                 loss_fnc=loss_fnc)
         # 현재 에폭에서 eval_result 외에도 틀린 예측값, ground truth값을 뽑아낸다
         eval_result,now_wrong_list,now_correct_list = _evaluation(val_predictions, dev_labels, slot_meta)
+
         #eda
         domain_counter,slot_counter,value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
         o_domain_counter,o_slot_counter,o_value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_correct_list))
@@ -253,6 +248,7 @@ def train(config_root: str):
         draw_EDA('value',value_counter,o_value_counter, epoch)
         wrong_list.append(now_wrong_list)
         correct_list.append(now_correct_list)
+
         print('---------Validation-----------')
         for k, v in eval_result.items():
             print(f"{k}: {v:.4f}")
@@ -271,10 +267,57 @@ def train(config_root: str):
             best_checkpoint = epoch
             
             if args.save_model:
-                torch.save(model.state_dict(), f"{args.model_dir}/{args.task_name}.bin")
+                torch.save(model.state_dict(), f"{args.model_dir}/model-best.bin")
 
         print()
-        # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
+        
+    ####################################
+    ######### Inference step ###########
+    ####################################
+    model_dir_path = os.path.dirname(args.model_dir)
+    eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
+    config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
+    slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
+    ontology = json.load(open(args.ontology_root, "r"))
 
-    print(f"Best checkpoint: {best_checkpoint}",)
-#     draw_WrongTrend(wrong_list)
+    config = argparse.Namespace(**config)
+    config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
+
+    tokenizer, processor, eval_features, _ = get_stuff(config,
+                 eval_data, None, slot_meta, ontology)
+
+    eval_data = WOSDataset(eval_features)
+    eval_sampler = SequentialSampler(eval_data)
+    eval_loader = DataLoader(
+        eval_data,
+        batch_size=args.eval_batch_size,
+        sampler=eval_sampler,
+        collate_fn=processor.collate_fn,
+    )
+    print("# eval:", len(eval_data))
+
+    model =  get_model(config, tokenizer, ontology, slot_meta)
+
+    ckpt = torch.load(args.model_dir, map_location="cpu")
+    model.load_state_dict(ckpt)
+    model.to(device)
+    print("Model is loaded")
+
+    if config.ModelName == 'TRADE':
+        inference_func = trade_inference
+    elif config.ModelName == 'SUMBT':
+        inference_func = sumbt_inference
+    else:
+        raise NotImplementedError()
+
+    predictions = inference_func(model, eval_loader, processor, device, config.use_amp)
+    
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
+    
+    json.dump(
+        predictions,
+        open(f"{args.output_dir}/predictions3.csv", "w"),
+        indent=2,
+        ensure_ascii=False,
+    )

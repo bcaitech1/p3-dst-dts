@@ -96,6 +96,7 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
 
 def inference(config_name:str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     conf=dict()
     with open(config_name) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
@@ -107,10 +108,13 @@ def inference(config_name:str):
     model_conf = copy.deepcopy(conf[model_name])
     model_dir_path = shared_conf['model_dir']
     eval_data = json.load(open(f"{shared_conf['eval_data_dir']}/eval_dials.json", "r"))
+
     config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
     # config = json.load(open(f"/opt/ml/gyujins_file/exp_config.json", "r"))
     slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
+
     ontology = json.load(open(shared_conf['ontology_root'], "r"))
+
 
     config = argparse.Namespace(**config)
     config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
@@ -130,8 +134,10 @@ def inference(config_name:str):
 
     model =  get_model(config, tokenizer, ontology, slot_meta)
 
+
     ckpt = torch.load(f"{shared_conf['model_dir']}/{shared_conf['task_name']}.bin", map_location="cpu")
     # ckpt = torch.load("/opt/ml/gyujins_file/model-best.bin", map_location="cpu")
+
     model.load_state_dict(ckpt)
     model.to(device)
     print("Model is loaded")
