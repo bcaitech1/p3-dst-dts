@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import ElectraModel
+from transformers import BertModel, BertTokenizer, BertConfig, AdamW, get_linear_schedule_with_warmup
 
 
 def masked_cross_entropy_for_value(logits, target, pad_idx=0):
@@ -18,93 +19,77 @@ def masked_cross_entropy_for_value(logits, target, pad_idx=0):
 
 
 class TRADE(nn.Module):
-    def __init__(self, config, tokenized_slot_meta, pad_idx=0):
+    def __init__(self, config, slot_vocab, slot_meta, pad_idx=0):
         super(TRADE, self).__init__()
-        self.encoder = GRUEncoder(
-            config.vocab_size,
-            config.hidden_size,
-            1,
-            config.hidden_dropout_prob,
-            config.proj_dim,
-            pad_idx,
-        )
-
+        self.slot_meta = slot_meta
+        if config.model_name_or_path:
+            self.encoder = BertModel.from_pretrained(config.model_name_or_path)
+        else:
+            self.encoder = BertModel(config)
+            
         self.decoder = SlotGenerator(
             config.vocab_size,
             config.hidden_size,
             config.hidden_dropout_prob,
             config.n_gate,
-            config.proj_dim,
+            None,
             pad_idx,
         )
-
-        self.decoder.set_slot_idx(tokenized_slot_meta)
-        self.tie_weight()
         
-    def set_subword_embedding(self, model_name_or_path):
-        model = ElectraModel.from_pretrained(model_name_or_path)
-        self.encoder.embed.weight = model.embeddings.word_embeddings.weight
+        # init for only subword embedding
+        self.decoder.set_slot_idx(slot_vocab)
         self.tie_weight()
 
     def tie_weight(self):
-        self.decoder.embed.weight = self.encoder.embed.weight
-        if self.decoder.proj_layer:
-            self.decoder.proj_layer.weight = self.encoder.proj_layer.weight
+        self.decoder.embed.weight = self.encoder.embeddings.word_embeddings.weight
 
-    def forward(
-        self, input_ids, token_type_ids, attention_mask=None, max_len=10, teacher=None
-    ):
+    def forward(self, input_ids, token_type_ids, attention_mask=None, max_len=10, teacher=None):
 
         encoder_outputs, pooled_output = self.encoder(input_ids=input_ids)
         all_point_outputs, all_gate_outputs = self.decoder(
-            input_ids,
-            encoder_outputs,
-            pooled_output.unsqueeze(0),
-            attention_mask,
-            max_len,
-            teacher,
+            input_ids, encoder_outputs, pooled_output.unsqueeze(0), attention_mask, max_len, teacher
         )
 
         return all_point_outputs, all_gate_outputs
 
 
-class GRUEncoder(nn.Module):
-    def __init__(self, vocab_size, d_model, n_layer, dropout, proj_dim=None, pad_idx=0):
-        super(GRUEncoder, self).__init__()
-        self.pad_idx = pad_idx
-        self.embed = nn.Embedding(vocab_size, d_model, padding_idx=pad_idx)
-        if proj_dim:
-            self.proj_layer = nn.Linear(d_model, proj_dim, bias=False)
-        else:
-            self.proj_layer = None
+# class GRUEncoder(nn.Module):
+#     def __init__(self, vocab_size, d_model, n_layer, dropout, proj_dim=None, pad_idx=0):
+#         super(GRUEncoder, self).__init__()
+#         self.pad_idx = pad_idx
+#         self.embed = nn.Embedding(vocab_size, d_model, padding_idx=pad_idx)
+#         if proj_dim:
+#             self.proj_layer = nn.Linear(d_model, proj_dim, bias=False)
+#         else:
+#             self.proj_layer = None
 
-        self.d_model = proj_dim if proj_dim else d_model
+#         self.d_model = proj_dim if proj_dim else d_model
 
-        if n_layer == 1:
-            gru_dropout = 0
-        else:
-            gru_dropout = dropout
-        self.gru = nn.GRU(
-            self.d_model,
-            self.d_model,
-            n_layer,
-            dropout=gru_dropout,
-            batch_first=True,
-            bidirectional=True,
-        )
-        self.dropout = nn.Dropout(dropout)
+#         if n_layer == 1:
+#             gru_dropout = 0
+#         else:
+#             gru_dropout = dropout
+#         self.gru = nn.GRU(
+#             self.d_model,
+#             self.d_model,
+#             n_layer,
+#             dropout=gru_dropout,
+#             batch_first=True,
+#             bidirectional=True,
+#         )
+#         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, input_ids):
-        mask = input_ids.eq(self.pad_idx).unsqueeze(-1)
-        x = self.embed(input_ids)
-        if self.proj_layer:
-            x = self.proj_layer(x)
-        x = self.dropout(x)
-        o, h = self.gru(x)
-        o = o.masked_fill(mask, 0.0)
-        output = o[:, :, : self.d_model] + o[:, :, self.d_model :]
-        hidden = h[0] + h[1]  # n_layer 고려
-        return output, hidden
+    # def forward(self, input_ids):
+    #     mask = input_ids.eq(self.pad_idx).unsqueeze(-1)
+    #     x = self.embed(input_ids)
+    #     if self.proj_layer:
+    #         x = self.proj_layer(x)
+    #     x = self.dropout(x)
+    #     o, h = self.gru(x)
+    #     o = o.masked_fill(mask, 0.0)
+    #     output = o[:, :, : self.d_model] + o[:, :, self.d_model :]
+    #     hidden = h[0] + h[1]  # n_layer 고려
+    #     return output, hidden
 
 
 class SlotGenerator(nn.Module):
@@ -124,12 +109,8 @@ class SlotGenerator(nn.Module):
             self.proj_layer = None
         self.hidden_size = proj_dim if proj_dim else hidden_size
 
-        # 원래 dropout=dropout이였지만 자꾸 밑에 에러떠서 dropout=0으로 변경
-        # /opt/conda/lib/python3.7/site-packages/torch/nn/modules/rnn.py:61: UserWarning: dropout option adds
-        # dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1,
-        # but got dropout=0.1 and num_layers=1    
         self.gru = nn.GRU(
-            self.hidden_size, self.hidden_size, 1, dropout=0, batch_first=True
+            self.hidden_size, self.hidden_size, 1, dropout=dropout, batch_first=True
         )
         self.n_gate = n_gate
         self.dropout = nn.Dropout(dropout)
@@ -180,7 +161,7 @@ class SlotGenerator(nn.Module):
 
             # B,T,D * B,D,1 => B,T
             attn_e = torch.bmm(encoder_output, hidden.permute(1, 2, 0))  # B,T,1
-            attn_e = attn_e.squeeze(-1).masked_fill(input_masks, -10000.0)
+            attn_e = attn_e.squeeze(-1).masked_fill(input_masks, -1e9)
             attn_history = F.softmax(attn_e, -1)  # B,T
 
             if self.proj_layer:

@@ -37,8 +37,10 @@ conf_keys = AttrDict(
     task_name=str,
     model_class=str,
     
-    use_generation_only=bool,
-    use_gen_dialog_only=bool
+    use_domain_slot=str,
+    use_decoder_ts=bool,
+    decoder_n_heads=int,
+    decoder_n_layers=int,
 )
 
 def update_parser(parser):

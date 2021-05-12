@@ -2,12 +2,12 @@ import argparse
 import os
 import json
 import sys
-
+import yaml
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
 from torch.cuda.amp import autocast
 from tqdm.auto import tqdm
-
+import copy
 from data_utils import WOSDataset
 from prepare import get_model, get_stuff
 
@@ -94,21 +94,27 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
         return predictions
 
 
-if __name__ == "__main__":
+def inference(config_name:str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default='/opt/ml/input/data/eval_dataset/')
-    parser.add_argument("--model_dir", type=str, default='/opt/ml/git/p3-dst-dts/team/code/results/')
-    parser.add_argument("--output_dir", type=str, default='/opt/ml/git/p3-dst-dts/team/code/results/')
-    parser.add_argument("--eval_batch_size", type=int, default=4)
-    args = parser.parse_args()
-    
-    model_dir_path = os.path.dirname(args.model_dir)
-    eval_data = json.load(open(f"{args.data_dir}/eval_dials.json", "r"))
+
+    conf=dict()
+    with open(config_name) as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+
+    model_name=conf['ModelName']
+    #공유 conf
+    shared_conf = copy.deepcopy(conf['SharedPrams'])
+    #TRADE / SUMBT 만의 conf
+    model_conf = copy.deepcopy(conf[model_name])
+    model_dir_path = shared_conf['model_dir']
+    eval_data = json.load(open(f"{shared_conf['eval_data_dir']}/eval_dials.json", "r"))
+
     config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
+    # config = json.load(open(f"/opt/ml/gyujins_file/exp_config.json", "r"))
     slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
-    ontology = json.load(open(f"{model_dir_path}/edit_ontology_metro.json", "r"))
+
+    ontology = json.load(open(shared_conf['ontology_root'], "r"))
+
 
     config = argparse.Namespace(**config)
     config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
@@ -120,7 +126,7 @@ if __name__ == "__main__":
     eval_sampler = SequentialSampler(eval_data)
     eval_loader = DataLoader(
         eval_data,
-        batch_size=args.eval_batch_size,
+        batch_size=model_conf['eval_batch_size'],
         sampler=eval_sampler,
         collate_fn=processor.collate_fn,
     )
@@ -128,7 +134,10 @@ if __name__ == "__main__":
 
     model =  get_model(config, tokenizer, ontology, slot_meta)
 
-    ckpt = torch.load('/opt/ml/git/p3-dst-dts/team/code/results/model-best.bin', map_location="cpu")
+
+    ckpt = torch.load(f"{shared_conf['model_dir']}/{shared_conf['task_name']}.bin", map_location="cpu")
+    # ckpt = torch.load("/opt/ml/gyujins_file/model-best.bin", map_location="cpu")
+
     model.load_state_dict(ckpt)
     model.to(device)
     print("Model is loaded")
@@ -142,12 +151,13 @@ if __name__ == "__main__":
 
     predictions = inference_func(model, eval_loader, processor, device, config.use_amp)
     
-    if not os.path.exists(args.output_dir):
-        os.mkdir(args.output_dir)
+    if not os.path.exists(shared_conf['output_dir']):
+        os.mkdir(shared_conf['output_dir'])
     
     json.dump(
         predictions,
-        open(f"{args.output_dir}/predictions3.csv", "w"),
+        open(f"{shared_conf['output_dir']}/{shared_conf['task_name']}.csv", "w"),
+        # open(f"{shared_conf['output_dir']}/gyus_output.csv", "w"),
         indent=2,
         ensure_ascii=False,
     )

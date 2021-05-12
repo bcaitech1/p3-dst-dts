@@ -42,7 +42,7 @@ class WOSDataset(Dataset):
         return self.features[idx]
 
 
-def load_dataset(data, dev_split=0.1):        
+def load_dataset(data, dev_split=0.1):
     num_data = len(data)
     num_dev = int(num_data * dev_split)
     if not num_dev:

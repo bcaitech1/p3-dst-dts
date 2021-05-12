@@ -5,9 +5,15 @@ import numpy as np
 import matplotlib.font_manager as fm
 import matplotlib as mpl
 import os
+import copy
+import yaml
 
+with open('/opt/ml/p3-dst-dts/dohoon/code/conf.yml') as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+
+conf = copy.deepcopy(conf['SharedPrams'])
 #그래프 저장 장소 확인
-directory="/opt/ml/graph"
+directory=f"{conf['model_dir']}/{conf['task_name']}"
 if not os.path.exists(directory):
         os.makedirs(directory)
 

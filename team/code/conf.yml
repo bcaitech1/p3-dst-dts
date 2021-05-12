@@ -1,23 +1,29 @@
 ModelName : SUMBT   # {SUMBT, TRADE}
 
+
 wandb :
-    using: False
-    project: dst
-    entity: rolypolyvg295
+    using: True
+    project: dohoon_dst
+    entity: vail131
     tags: 
         - v0
-        - trade_custom_test
+        
 
 SharedPrams:
     data_dir: /opt/ml/input/data/train_dataset
-    model_dir: /opt/ml/git/p3-dst-dts/team/code/results
-    output_dir: /opt/ml/results
-
-    ontology_root : /opt/ml/git/p3-dst-dts/team/code/results/edit_ontology_metro.json
+    eval_data_dir: /opt/ml/input/data/eval_dataset
+    
+    model_dir: /opt/ml/p3-dst-dts/dohoon/code/model
+    
+    output_dir: /opt/ml/p3-dst-dts/dohoon/code/predictions
+    
+    ontology_root : /opt/ml/p3-dst-dts/dohoon/code/results/edit_ontology_metro.json
 
     save_model: True
 
     use_small_data: True # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
+
+    task_name: trade_30ep_decoder_transformer
 
     train_log_step: 50
     train_running_loss_len: 50
@@ -25,7 +31,6 @@ SharedPrams:
     use_generation_only: False
     use_gen_dialog_only: False
 
-    use_amp: True
     device_pref: cuda
 
     adam_epsilon: !!python/float 1e-08
@@ -34,10 +39,17 @@ SharedPrams:
     weight_decay: 0.01
 
     random_seed: 42
+    
+    use_domain_slot: basic # {basic | gen | cat} basic 다 사용,
+                            # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
+                            # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
 
 
+
+   
+    
 SUMBT:
-    hidden_dim: 600
+    hidden_dim: 300
     learning_rate: !!python/float 5e-5
 
     num_train_epochs: 30
@@ -53,9 +65,9 @@ SUMBT:
     max_label_length: 12
 
     attn_head: 8
+
     fix_utterance_encoder: False
 
-    task_name: sumbtgru
     distance_metric: euclidean
     preprocessor: SUMBTPreprocessor
     model_class: SUMBT
@@ -65,27 +77,26 @@ SUMBT:
                                     # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
     
     use_transformer: True # True -> transformer, False -> gru
-    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
 
+    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
 
 
 TRADE:
     hidden_size: 768
-    learning_rate: !!python/float 1e-04
+    learning_rate: !!python/float 0.00003
 
-    num_train_epochs: 10
+    num_train_epochs: 2
 
     train_batch_size: 16
-    eval_batch_size: 32
+    eval_batch_size: 8
 
-    model_name_or_path: monologg/koelectra-base-v3-discriminator
+    model_name_or_path: dsksd/bert-ko-small-minimal
+
     vocab_size: 35000
     hidden_dropout_prob: 0.1
     proj_dim: null
     teacher_forcing_ratio: 0.5
-    n_gate: 3
+    n_gate: 5
     preprocessor: TRADEPreprocessor
     model_class: TRADE
 
-
-    
