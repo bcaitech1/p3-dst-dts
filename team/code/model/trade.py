@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import ElectraModel
-from transformers import BertModel, BertTokenizer, BertConfig, AdamW, get_linear_schedule_with_warmup
-
+from transformers import BertModel, BertTokenizer, BertConfig
+from fast_transformers.builders import RecurrentDecoderBuilder
+from fast_transformers.masking import LengthMask
 
 def masked_cross_entropy_for_value(logits, target, pad_idx=0):
     mask = target.ne(pad_idx)
@@ -34,10 +35,12 @@ class TRADE(nn.Module):
             config.n_gate,
             None,
             pad_idx,
+            config.use_decoder_ts,
+            config.decoder_n_heads,
+            config.decoder_n_layers,
         )
-        
-        # init for only subword embedding
-        self.decoder.set_slot_idx(slot_vocab)
+
+        self.decoder.set_slot_idx(tokenized_slot_meta)
         self.tie_weight()
 
     def tie_weight(self):
@@ -51,46 +54,6 @@ class TRADE(nn.Module):
         )
 
         return all_point_outputs, all_gate_outputs
-
-
-# class GRUEncoder(nn.Module):
-#     def __init__(self, vocab_size, d_model, n_layer, dropout, proj_dim=None, pad_idx=0):
-#         super(GRUEncoder, self).__init__()
-#         self.pad_idx = pad_idx
-#         self.embed = nn.Embedding(vocab_size, d_model, padding_idx=pad_idx)
-#         if proj_dim:
-#             self.proj_layer = nn.Linear(d_model, proj_dim, bias=False)
-#         else:
-#             self.proj_layer = None
-
-#         self.d_model = proj_dim if proj_dim else d_model
-
-#         if n_layer == 1:
-#             gru_dropout = 0
-#         else:
-#             gru_dropout = dropout
-#         self.gru = nn.GRU(
-#             self.d_model,
-#             self.d_model,
-#             n_layer,
-#             dropout=gru_dropout,
-#             batch_first=True,
-#             bidirectional=True,
-#         )
-#         self.dropout = nn.Dropout(dropout)
-
-    # def forward(self, input_ids):
-    #     mask = input_ids.eq(self.pad_idx).unsqueeze(-1)
-    #     x = self.embed(input_ids)
-    #     if self.proj_layer:
-    #         x = self.proj_layer(x)
-    #     x = self.dropout(x)
-    #     o, h = self.gru(x)
-    #     o = o.masked_fill(mask, 0.0)
-    #     output = o[:, :, : self.d_model] + o[:, :, self.d_model :]
-    #     hidden = h[0] + h[1]  # n_layer 고려
-    #     return output, hidden
-
 
 class SlotGenerator(nn.Module):
     def __init__(

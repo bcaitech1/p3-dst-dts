@@ -62,6 +62,17 @@ def get_data(args):
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
     ontology = json.load(open(args.ontology_root))
 
+    if args.use_convert_ont:
+        if args.convert_time != 'none':
+            convert_time_dict = getattr(import_module('change_ont_value'), args.convert_time)
+            print(f'Change Time Format: xx:xx -> {convert_time_dict.example}')
+            print(f'Change {"  ".join(convert_time_dict.applied)}')
+            for cat in convert_time_dict.applied:
+                ontology[cat] = [convert_time_dict.convert(x) for x in ontology[cat]]
+            args.convert_time_dict = convert_time_dict
+        else:
+            args.convert_time_dict = None
+            
     if args.use_domain_slot == 'basic':
         if args.use_small_data:
             data = data[:100]
@@ -115,6 +126,7 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
             max_turn_length=max_turn,
             max_seq_length=args.max_seq_length,
             model_name_or_path=args.model_name_or_path,
+            args=args,
         )
     else:
         raise NotImplementedError()

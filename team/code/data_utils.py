@@ -46,7 +46,7 @@ def load_dataset(data, dev_split=0.1):
     num_data = len(data)
     num_dev = int(num_data * dev_split)
     if not num_dev:
-        return data, []  # no dev dataset
+        return data, [], None  # no dev dataset
 
     dom_mapper = defaultdict(list)
     for d in data:

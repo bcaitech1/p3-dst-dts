@@ -178,6 +178,8 @@ def train(config_root: str):
         ensure_ascii=False,
     )
 
+    set_directory(f'{args.model_dir}/graph')
+
     if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
         loss_fnc = Trade_Loss(tokenizer.pad_token_id, args.n_gate)
@@ -273,8 +275,8 @@ def train(config_root: str):
             if args.save_model:
                 torch.save(model.state_dict(), f"{args.model_dir}/{args.task_name}.bin")
 
-        print()
-        # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
-
+        # if epoch % 5 == 4:
+        #     print(f'saving to {args.model_dir}/model-{epoch}.bin"')
+        #     torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
-#     draw_WrongTrend(wrong_list)
+    # draw_WrongTrend(wrong_list)
