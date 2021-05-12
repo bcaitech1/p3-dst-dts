@@ -1,5 +1,6 @@
 import torch
 from tqdm.auto import tqdm
+import numpy as np
 
 from data_utils import DSTPreprocessor, OpenVocabDSTFeature, convert_state_dict
 
@@ -25,17 +26,28 @@ class TRADEPreprocessor(DSTPreprocessor):
         dialogue_context = " [SEP] ".join(example.context_turns + example.current_turn)
         #이전 context에 current_turn 대화를 붙여준다
         input_id = self.src_tokenizer.encode(dialogue_context, add_special_tokens=False)
-        max_length = self.max_seq_length - 2
+        input_id = input_id + [self.src_tokenizer.sep_token_id] # seg 만들기 편하게
+
+        # input_id 랑 똑같게 segment_id 생성
+        # 0은 SYS 발화, 1은 USR 발화
+        # 처음 CLS token은 처음 나오는 값 따라가게
+        # 1 2 3 sep 2 3 -> 0 0 0 0 1 1  이렇게 SEP token 까지
+        np_input_id = np.array(input_id)
+        sep_token_idxs = np.where(np_input_id == self.src_tokenizer.sep_token_id)[0]
+        sep_token_idxs = sep_token_idxs.reshape(-1, 2)
+        seg_tmp = np.zeros(len(np_input_id), dtype=np.int)
+        for start, end in sep_token_idxs:
+            seg_tmp[start+1:end+1] = 1
+        segment_id = seg_tmp.tolist()
+
+        max_length = self.max_seq_length - 1
         #max_length보다 길어진다면 그나마 가장 최신 current_turn에 가깝게 끊어준다
         if len(input_id) > max_length: 
             gap = len(input_id) - max_length
             input_id = input_id[gap:]
-        input_id = (
-            [self.src_tokenizer.cls_token_id]
-            + input_id
-            + [self.src_tokenizer.sep_token_id]
-        )
-        segment_id = [0] * len(input_id)
+            segment_id = segment_id[gap:]
+        input_id = [self.src_tokenizer.cls_token_id] + input_id
+        segment_id = [segment_id[0]] + segment_id
 
         target_ids = []
         gating_id = []
