@@ -30,17 +30,16 @@ SharedPrams:
     use_generation_only: False
     use_gen_dialog_only: False
 
-    use_amp: True
-    device_pref: cuda
+    use_amp: False
+    device_pref: cpu
 
     adam_epsilon: !!python/float 1e-08
     max_grad_norm: 1.0
     warmup_ratio: 0.1
     weight_decay: 0.01
     random_seed: 42
-    ontology_root: /opt/ml/input/data/train_dataset/edit_ontology_metro.json #edit_ontology_metro.json
-    use_extra_ontology: False # {True | True}
-    use_domain_slot: cat # {basic | gen | cat} basic 다 사용,
+    ontology_root: /opt/ml/input/data/train_dataset/edit_ontology_metro.json
+    use_domain_slot: basic # {basic | gen | cat} basic 다 사용,
                             # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
                             # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
     use_convert_ont: True

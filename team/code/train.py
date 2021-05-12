@@ -290,7 +290,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='code/conf.yml')
+                        default='/opt/ml/project/team/code/conf.yml')
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
