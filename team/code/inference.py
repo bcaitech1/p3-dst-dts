@@ -10,6 +10,7 @@ from tqdm.auto import tqdm
 import copy
 from data_utils import WOSDataset
 from prepare import get_model, get_stuff
+import parser_maker
 
 from training_recorder import RunningLossRecorder
 
@@ -57,8 +58,6 @@ def trade_inference(model, eval_loader, processor, device, use_amp=False,
     else:
         return predictions
 
-inference = trade_inference
-
 def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
         loss_fnc=None):
     model.eval()
@@ -94,11 +93,11 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
         return predictions
 
 
-def inference(config_name:str):
+def inference(config_root:str, task_dir:str=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     conf=dict()
-    with open(config_name) as f:
+    with open(config_root) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     model_name=conf['ModelName']
@@ -106,12 +105,16 @@ def inference(config_name:str):
     shared_conf = copy.deepcopy(conf['SharedPrams'])
     #TRADE / SUMBT 만의 conf
     model_conf = copy.deepcopy(conf[model_name])
-    model_dir_path = shared_conf['model_dir']
+
+    if not task_dir:
+        task_dir = f"{shared_conf['train_result_dir']}/{shared_conf['task_name']}"
+
+
     eval_data = json.load(open(f"{shared_conf['eval_data_dir']}/eval_dials.json", "r"))
 
-    config = json.load(open(f"{model_dir_path}/exp_config.json", "r"))
+    config = json.load(open(f"{task_dir}/exp_config.json", "r"))
     # config = json.load(open(f"/opt/ml/gyujins_file/exp_config.json", "r"))
-    slot_meta = json.load(open(f"{model_dir_path}/slot_meta.json", "r"))
+    slot_meta = json.load(open(f"{task_dir}/slot_meta.json", "r"))
 
     ontology = json.load(open(shared_conf['ontology_root'], "r"))
 
@@ -135,7 +138,7 @@ def inference(config_name:str):
     model =  get_model(config, tokenizer, ontology, slot_meta)
 
 
-    ckpt = torch.load(f"{shared_conf['model_dir']}/{shared_conf['task_name']}.bin", map_location="cpu")
+    ckpt = torch.load(f"{task_dir}/model-best.bin", map_location="cpu")
     # ckpt = torch.load("/opt/ml/gyujins_file/model-best.bin", map_location="cpu")
 
     model.load_state_dict(ckpt)
@@ -161,3 +164,20 @@ def inference(config_name:str):
         indent=2,
         ensure_ascii=False,
     )
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--config', 
+                        type=str,
+                        help="Get config file following root",
+                        default='./conf.yml')
+    parser.add_argument('-t', '--task_dir', 
+                        type=str,
+                        help="Get task_dir",
+                        default=None)                    
+    parser = parser_maker.update_parser(parser)
+
+    config_args = parser.parse_args()
+    config_root = config_args.config
+    print(f'Using config: {config_root}')
+    inference(config_root)

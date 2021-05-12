@@ -128,7 +128,9 @@ def train(config_root: str):
             "weight_decay": 0.0,
         },
     ]
-
+    ################################
+    ######### Train step ###########
+    ################################
     n_epochs = args.num_train_epochs
     t_total = len(train_loader) * n_epochs
     warmup_steps = int(t_total * args.warmup_ratio)
@@ -140,7 +142,6 @@ def train(config_root: str):
     if not os.path.exists(args.train_result_dir):
         os.mkdir(args.train_result_dir)
     
-    #################################################
 
     # train의 result들을 task 이름 폴더에 저장
     task_dir = f'{args.train_result_dir}/{args.task_name}'
@@ -160,7 +161,6 @@ def train(config_root: str):
     print(f'Current result dir : {task_dir}')
     print('\n')
 
-    ################################################
 
     args_save = {k:v for k, v in args.items() if k in basic_args}
     json.dump(
@@ -284,6 +284,8 @@ def train(config_root: str):
     print(f"Best checkpoint: {best_checkpoint}",)
     # draw_WrongTrend(wrong_list)
 
+    return task_dir
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run Experiment')
@@ -295,7 +297,6 @@ if __name__ == "__main__":
 
     config_args = parser.parse_args()
     config_root = config_args.config
-    config_args.config = None
     print(f'Using config: {config_root}')
     
     train(config_root)
