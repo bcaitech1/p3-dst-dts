@@ -1,6 +1,8 @@
 from collections import Counter, defaultdict
 from matplotlib import pyplot as plt
 from typing import DefaultDict
+from attrdict import AttrDict
+
 import numpy as np
 import matplotlib.font_manager as fm
 import matplotlib as mpl
@@ -13,15 +15,21 @@ with open('./code/conf.yml') as f:
 
 conf = copy.deepcopy(conf['SharedPrams'])
 #그래프 저장 장소 확인
-directory=f"{conf['model_dir']}/{conf['task_name']}"
-if not os.path.exists(directory):
-        os.makedirs(directory)
 
-def set_directory(new_dir):
-    global directory
-    directory= new_dir
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+conf = AttrDict(conf)
+
+train_result_dir = f'{conf.train_result_dir}/{conf.task_name}'
+
+if os.path.exists(f'{conf.train_result_dir}/{conf.task_name}'):
+    i = 1
+    while os.path.exists(f'{train_result_dir}_{i}'):
+        i += 1
+    
+    train_result_dir = f'{train_result_dir}_{i}'
+
+directory=f'{train_result_dir}/graph'
+
+
 
 # 그래프에서 마이너스 폰트 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False

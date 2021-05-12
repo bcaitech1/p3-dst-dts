@@ -2,6 +2,7 @@ from attrdict import AttrDict
 from importlib import import_module
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 import json
+import os
 from tqdm.auto import tqdm
 import torch
 from transformers import AutoTokenizer
@@ -14,6 +15,11 @@ from data_utils import (
     DSTPreprocessor, 
     WOSDataset)
 
+def set_directory(new_dir):
+    global directory
+    directory= new_dir
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 gen_slot_meta = set(['관광-이름', '숙소-예약 기간', '숙소-예약 명수', '숙소-이름', '식당-예약 명수', '식당-이름', '택시-도착지', '택시-출발지', '지하철-도착지', '지하철-출발지'])
 

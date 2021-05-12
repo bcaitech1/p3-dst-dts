@@ -27,7 +27,7 @@ from eda import *
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
-from prepare import get_data, get_stuff, get_model
+from prepare import get_data, get_stuff, get_model, set_directory
 from losses import Trade_Loss, SUBMT_Loss
 
 import wandb_stuff
@@ -137,31 +137,51 @@ def train(config_root: str):
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
     )
 
-    if not os.path.exists(args.model_dir):
-        os.mkdir(args.model_dir)
+    if not os.path.exists(args.train_result_dir):
+        os.mkdir(args.train_result_dir)
+    
+    #################################################
+
+    # train의 result들을 task 이름 폴더에 저장
+    task_dir = f'{args.train_result_dir}/{args.task_name}'
+
+    if os.path.exists(f'{args.train_result_dir}/{args.task_name}'):
+        i = 1
+        while os.path.exists(f'{task_dir}_{i}'):
+            i += 1
+        
+        task_dir = f'{task_dir}_{i}'
+
+    os.mkdir(f'{task_dir}')
+
+    set_directory(f'{task_dir}/graph')
+
+    print('\n')
+    print(f'Current result dir : {task_dir}')
+    print('\n')
+
+    ################################################
 
     args_save = {k:v for k, v in args.items() if k in basic_args}
     json.dump(
         args_save,
-        open(f"{args.model_dir}/exp_config.json", "w"),
+        open(f"{task_dir}/exp_config.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
     json.dump(
         slot_meta,
-        open(f"{args.model_dir}/slot_meta.json", "w"),
+        open(f"{task_dir}/slot_meta.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
 
     json.dump(
         ontology,
-        open(f"{args.model_dir}/edit_ontology_metro.json", "w"),
+        open(f"{task_dir}/edit_ontology_metro.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
-
-    set_directory(f'{args.model_dir}/graph')
 
     if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
@@ -256,11 +276,11 @@ def train(config_root: str):
             best_checkpoint = epoch
             
             if args.save_model:
-                torch.save(model.state_dict(), f"{args.model_dir}/{args.task_name}.bin")
+                torch.save(model.state_dict(), f"{task_dir}/model-best.bin")
 
         # if epoch % 5 == 4:
-        #     print(f'saving to {args.model_dir}/model-{epoch}.bin"')
-        #     torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
+        #     print(f'saving to {args.train_result_dir}/model-{epoch}.bin"')
+        #     torch.save(model.state_dict(), f"{args.train_result_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
     # draw_WrongTrend(wrong_list)
 

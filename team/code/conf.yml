@@ -11,14 +11,18 @@ wandb :
 
 SharedPrams:
     data_dir: /opt/ml/input/data/train_dataset
-    model_dir: /opt/ml/git/p3-dst-dts/team/code/results
+
+    #train시에 나오는 결과물(eda 결과_graph dir, model bin file, inference에서 쓰는 conf)들을 저장
+    train_result_dir: /opt/ml/git/p3-dst-dts/team/code/results 
+
+    #prediction files만 저장
     output_dir: /opt/ml/results
 
     task_name: SUMBT_Transformer_catslot
 
     save_model: True
 
-    use_small_data: False # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
+    use_small_data: True # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
 
     train_log_step: 50
     train_running_loss_len: 50
@@ -34,7 +38,7 @@ SharedPrams:
     warmup_ratio: 0.1
     weight_decay: 0.01
     random_seed: 42
-    ontology_root: /opt/ml/input/data/train_dataset/ontology.json #edit_ontology_metro.json
+    ontology_root: /opt/ml/input/data/train_dataset/edit_ontology_metro.json #edit_ontology_metro.json
     use_extra_ontology: False # {True | True}
     use_domain_slot: cat # {basic | gen | cat} basic 다 사용,
                             # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
