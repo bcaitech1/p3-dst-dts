@@ -195,9 +195,7 @@ def get_model(args, tokenizer, ontology, slot_meta):
             )
 
         model_kwargs = AttrDict(
-            slot_vocab=tokenized_slot_meta,
-            # tokenized_slot_meta=tokenized_slot_meta,
-            slot_meta=slot_meta
+            slot_meta=tokenized_slot_meta
         )
     elif args.ModelName == 'SUMBT':
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)

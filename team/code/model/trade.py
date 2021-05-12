@@ -20,7 +20,7 @@ def masked_cross_entropy_for_value(logits, target, pad_idx=0):
 
 
 class TRADE(nn.Module):
-    def __init__(self, config, slot_vocab, slot_meta, pad_idx=0):
+    def __init__(self, config, slot_meta, pad_idx=0):
         super(TRADE, self).__init__()
         self.slot_meta = slot_meta
         if config.model_name_or_path:
@@ -33,14 +33,14 @@ class TRADE(nn.Module):
             config.hidden_size,
             config.hidden_dropout_prob,
             config.n_gate,
-            None,
+            config.proj_dim,
             pad_idx,
             config.use_decoder_ts,
             config.decoder_n_heads,
             config.decoder_n_layers,
         )
 
-        self.decoder.set_slot_idx(tokenized_slot_meta)
+        self.decoder.set_slot_idx(slot_meta)
         self.tie_weight()
 
     def tie_weight(self):
@@ -57,7 +57,8 @@ class TRADE(nn.Module):
 
 class SlotGenerator(nn.Module):
     def __init__(
-        self, vocab_size, hidden_size, dropout, n_gate, proj_dim=None, pad_idx=0
+        self, vocab_size, hidden_size, dropout, n_gate, proj_dim=None, pad_idx=0,
+        use_decoder_ts=False, n_heads=4, num_layers=2
     ):
         super(SlotGenerator, self).__init__()
         self.pad_idx = pad_idx
@@ -66,15 +67,35 @@ class SlotGenerator(nn.Module):
             vocab_size, hidden_size, padding_idx=pad_idx
         )  # shared with encoder
 
+        self.use_decoder_ts = use_decoder_ts
+
         if proj_dim:
             self.proj_layer = nn.Linear(hidden_size, proj_dim, bias=False)
         else:
             self.proj_layer = None
         self.hidden_size = proj_dim if proj_dim else hidden_size
 
-        self.gru = nn.GRU(
-            self.hidden_size, self.hidden_size, 1, dropout=dropout, batch_first=True
-        )
+        if self.use_decoder_ts:
+            qv_dim = hidden_size // n_heads
+
+            self.decoder = RecurrentDecoderBuilder.from_kwargs(
+                self_attention_type="linear",
+                cross_attention_type="linear",
+                n_layers=num_layers,
+                n_heads=n_heads,
+                feed_forward_dimensions=hidden_size,
+                query_dimensions=qv_dim,
+                value_dimensions=qv_dim,
+            ).get()
+        else:
+            # 원래 dropout=dropout이였지만 자꾸 밑에 에러떠서 dropout=0으로 변경
+            # /opt/conda/lib/python3.7/site-packages/torch/nn/modules/rnn.py:61: UserWarning: dropout option adds
+            # dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1,
+            # but got dropout=0.1 and num_layers=1    
+            self.gru = nn.GRU(
+                self.hidden_size, self.hidden_size, 1, dropout=0, batch_first=True
+            )
+
         self.n_gate = n_gate
         self.dropout = nn.Dropout(dropout)
         self.w_gen = nn.Linear(self.hidden_size * 3, 1)
@@ -118,13 +139,24 @@ class SlotGenerator(nn.Module):
         encoder_output = encoder_output.repeat_interleave(J, dim=0)
         input_ids = input_ids.repeat_interleave(J, dim=0)
         input_masks = input_masks.repeat_interleave(J, dim=0)
+        input_len_masks = input_masks.sum(-1)
+        len_mask = LengthMask(input_len_masks, max_len=input_ids.size(1))
+
+        if self.use_decoder_ts:
+            state = None
         for k in range(max_len):
             w = self.dropout(w)
-            _, hidden = self.gru(w, hidden)  # 1,B,D
+            if self.use_decoder_ts:
+                w_tmp = w.squeeze(1) # B, D
+                hidden, state = self.decoder(w_tmp, encoder_output, state=state)
+                # hidden, state = self.decoder(w, encoder_output, len_mask, state)
+                hidden = hidden.unsqueeze(0)
+            else:
+                _, hidden = self.gru(w, hidden)  # 1,B,D
 
             # B,T,D * B,D,1 => B,T
             attn_e = torch.bmm(encoder_output, hidden.permute(1, 2, 0))  # B,T,1
-            attn_e = attn_e.squeeze(-1).masked_fill(input_masks, -1e9)
+            attn_e = attn_e.squeeze(-1).masked_fill(input_masks, -10000.0)
             attn_history = F.softmax(attn_e, -1)  # B,T
 
             if self.proj_layer:
@@ -151,7 +183,7 @@ class SlotGenerator(nn.Module):
             _, w_idx = p_final.max(-1)
 
             if teacher is not None:
-                w = self.embedding(teacher[:, :, k]).transpose(0, 1).reshape(batch_size * J, 1, -1)
+                w = self.embedding(teacher[:, :, k]).reshape(batch_size * J, 1, -1)
             else:
                 w = self.embedding(w_idx).unsqueeze(1)  # B,1,D
             if k == 0:
