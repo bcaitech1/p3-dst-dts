@@ -64,28 +64,41 @@ def train(config_root: str):
     # random seed 고정
     seed_everything(args.random_seed)
 
+    if args.train_from_trained is not None:
+        trained_config = json.load(open(f'{args.train_from_trained}/exp_config.json'))
+        trained_config = AttrDict(trained_config)
+        print(f'Changing ModelName, preprocessor, model_class to {args.train_from_trained} config')
+        args.ModelName = trained_config.ModelName
+        args.preprocessor = trained_config.preprocessor
+        args.model_class = trained_config.model_class
+        args.model_name_or_path = trained_config.model_name_or_path
+
     # Data Loading
     data, slot_meta, ontology = get_data(args)
-    train_data, dev_data, dev_labels, dev_idxs = load_dataset(data)
 
-    tokenizer, processor, train_features, dev_features = get_stuff(args,
-                    train_data, dev_data, slot_meta, ontology)
+    if args.train_from_trained is not None and args.use_trained_val_idxs:
+        given_val_idxs = json.load(open(f'{args.train_from_trained}/dev_idxs.json', 'r'))
+    else:
+        given_val_idxs = None
+    train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs)
 
-    # Slot Meta tokenizing for the decoder initial inputs
-    tokenized_slot_meta = []
-    for slot in slot_meta:
-        tokenized_slot_meta.append(
-            tokenizer.encode(slot.replace("-", " "), add_special_tokens=False)
-        )
+    if args.train_from_trained is not None:
+        tokenizer, processor, train_features, dev_features = get_stuff(trained_config,
+            train_data, dev_data, slot_meta, ontology)
+        model =  get_model(trained_config, tokenizer, ontology, slot_meta)
+    else:
+        tokenizer, processor, train_features, dev_features = get_stuff(args,
+            train_data, dev_data, slot_meta, ontology)
+        model =  get_model(args, tokenizer, ontology, slot_meta)
 
-    # Model 선언
-    model =  get_model(args, tokenizer, ontology, slot_meta)
-    # print(f'Moving model to {args.device}')
+    if args.train_from_trained is not None:
+        ckpt = torch.load(f"{args.train_from_trained}/model-best.bin", map_location="cpu")
+        model.load_state_dict(ckpt)
+    
     pbar = tqdm(desc=f'Moving model to {args.device} -- waiting...', bar_format='{desc} -> {elapsed}')
     model.to(args.device)
     pbar.set_description(f'Moving model to {args.device} -- DONE')  
     pbar.close()
-    # print(f'Finished moving model to {args.device}')
 
     wandb_stuff.watch_model(args, model)
 

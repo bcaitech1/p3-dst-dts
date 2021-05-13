@@ -42,21 +42,25 @@ class WOSDataset(Dataset):
         return self.features[idx]
 
 
-def load_dataset(data, dev_split=0.1):
+def load_dataset(data, dev_split=0.1, given_dev_idx=None):
+    # given_dev_idx: 주어진 dev_idx로 dev split함
     num_data = len(data)
     num_dev = int(num_data * dev_split)
     if not num_dev:
         return data, [], None, None  # no dev dataset
 
-    dom_mapper = defaultdict(list)
-    for d in data:
-        dom_mapper[len(d["domains"])].append(d["dialogue_idx"])
+    if given_dev_idx is None:
+        dom_mapper = defaultdict(list)
+        for d in data:
+            dom_mapper[len(d["domains"])].append(d["dialogue_idx"])
 
-    num_per_domain_trainsition = int(num_dev / 3)
-    dev_idx = []
-    for v in dom_mapper.values():
-        idx = random.sample(v, num_per_domain_trainsition)
-        dev_idx.extend(idx)
+        num_per_domain_trainsition = int(num_dev / 3)
+        dev_idx = []
+        for v in dom_mapper.values():
+            idx = random.sample(v, num_per_domain_trainsition)
+            dev_idx.extend(idx)
+    else:
+        dev_idx = given_dev_idx
 
     train_data, dev_data = [], []
     for d in data:
