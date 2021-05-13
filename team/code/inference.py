@@ -17,6 +17,10 @@ from training_recorder import RunningLossRecorder
 def postprocess_state(state):
     for i, s in enumerate(state):
         s = s.replace(" : ", ":")
+        s = s.replace(" & ", "&")
+        s = s.replace(" = ", "=")
+        s = s.replace("( ", "(")
+        s = s.replace(" )", ")")
         state[i] = s.replace(" , ", ", ")
     return state
 
