@@ -18,7 +18,7 @@ SharedPrams:
 
     use_small_data: True # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
 
-    task_name: trade_30ep_decoder_transformer
+    task_name: trade_10ep_proj_dim
 
     train_log_step: 50
     train_running_loss_len: 50
@@ -76,7 +76,7 @@ TRADE:
     hidden_size: 768
     learning_rate: !!python/float 0.00003
 
-    num_train_epochs: 2
+    num_train_epochs: 10
 
     train_batch_size: 16
     eval_batch_size: 8
@@ -84,7 +84,7 @@ TRADE:
     model_name_or_path: dsksd/bert-ko-small-minimal
     vocab_size: 35000
     hidden_dropout_prob: 0.1
-    proj_dim: null
+    proj_dim: 2
     teacher_forcing_ratio: 0.5
     n_gate: 5
     preprocessor: TRADEPreprocessor
