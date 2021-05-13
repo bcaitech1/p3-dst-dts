@@ -25,8 +25,8 @@ if __name__ == "__main__":
     config_args.config = None
     print(f'Using config: {config_root}')
 
-    train(config_root)
-    inference(config_root)
+    task_dir = train(config_root)
+    inference(config_root, task_dir)
 
     # test_dir='/opt/ml/p3-dst-dts/dohoon/code/predictions'
     
