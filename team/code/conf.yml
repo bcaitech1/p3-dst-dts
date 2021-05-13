@@ -19,9 +19,9 @@ SharedPrams:
     #prediction files만 저장
     output_dir: /opt/ml/project/team/predictions
 
-    task_name: time_baseline
+    task_name: test_reuse
 
-    save_model: False
+    save_model: True
 
     use_small_data: True # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
 
@@ -41,7 +41,7 @@ SharedPrams:
     random_seed: 42
     ontology_root: /opt/ml/input/data/train_dataset/edit_ontology_metro.json #edit_ontology_metro.json
 
-    use_domain_slot: basic # {basic | gen | cat} basic 다 사용,
+    use_domain_slot: gen # {basic | gen | cat} basic 다 사용,
                             # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
                             # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
     use_convert_ont: False
@@ -49,8 +49,16 @@ SharedPrams:
                                 # none: 사용안함
                                 # time_hour_min: 시간 xx시 xx분
                                 # hour_min: xx시 ㅌㅌ분
-    use_sys_usr_sys_turn: True # {False | True} 현재 SYS-USR를 하나의 턴으로 사용하는데
+    use_sys_usr_sys_turn: False # {False | True} 현재 SYS-USR를 하나의 턴으로 사용하는데
                                     # SYS-USR-SYS를 하나의 턴으로 사용하기
+    train_from_trained: /opt/ml/project/team/code/results/sys_usr_sys
+                             # {null |  모델이 있는 디렉토리}
+                             # null: 사용안함
+                             # 모델이 있는 디렉토리: 해당 디렉토리에서 모델, preprocessor, tokenizer, 
+                             # ontology, slot_meta 가져옴(근데 상세 설정은 안 가져옴, 똑같이 사용할려면 직접 설치해)
+                             # use_domain_slot 필터 작동안함, use_small_data 작동함
+                             # ex) /opt/ml/project/team/code/results/decoder_long
+    use_trained_val_idxs: False # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5
