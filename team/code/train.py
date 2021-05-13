@@ -294,10 +294,10 @@ def train(config_root: str):
     # draw_WrongTrend(wrong_list)
 
     # save
-    with open('guid_compare_dict_list.pickle', 'wb') as f:
+    with open(f"{task_dir}/guid_compare_dict_list.pickle", 'wb') as f:
         pickle.dump(guid_compare_dict_list, f, pickle.HIGHEST_PROTOCOL)
-    with open('dev_idx.pickle', 'wb') as f:
-        pickle.dump(dev_idx, f, pickle.HIGHEST_PROTOCOL)
+    with open(f"{task_dir}/dev_idxs.pickle", 'wb') as f:
+        pickle.dump(dev_idxs, f, pickle.HIGHEST_PROTOCOL)
 
     # load
     # with open('dev_idx.pickle', 'rb') as f:
@@ -312,7 +312,8 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='/opt/ml/project/team/code/conf2.yml')
+                        default='/opt/ml/p3-dst-dts/team/code/conf.yml')
+                        
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()

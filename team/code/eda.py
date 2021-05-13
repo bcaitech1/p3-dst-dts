@@ -10,11 +10,10 @@ import os
 import copy
 import yaml
 
-with open('/opt/ml/project/team/code/conf2.yml') as f:
+with open('/opt/ml/p3-dst-dts/team/code/conf.yml') as f:
     conf = yaml.load(f, Loader=yaml.FullLoader)
 
 conf = copy.deepcopy(conf['SharedPrams'])
-#그래프 저장 장소 확인
 
 conf = AttrDict(conf)
 
@@ -188,12 +187,18 @@ def make_Wrongdialchecker(guid_compare_dict:dict)->dict:
     
     return wrong_dial_dict
 
-def check_Wrongdial(guid:str, wrong_dial_dict: dict)->list(str):
+def check_Wrongdial(guid:str, wrong_dial_dict: dict, dom_slot:str=None):
     """[오답지 wrong_dial_dict와 오답의 guid를 넣으면 틀린 부분의 turn담화와 정답/오답state를 보여준다]
-
+       [혹은 input으로 들어온 dom_slot에 한에서만 확인할 수 있다]
     Args:
-        guid (str): [ex) "square-lab-2696:택시_2"]]
+        guid (str): [ex) "square-lab-2696:택시_2"]
+        wrong_dial_dict (dict): [오답지]
+        dom_slot (str): [확인하고자 하는 tartget dom_slot]
     """
+
     print(guid,"에서 틀린 부분을 확인합니다")
     for val in wrong_dial_dict[guid]:
-        print(val)
+        if dom_slot and dom_slot in val:
+            print(val)
+        else :
+            print(val)

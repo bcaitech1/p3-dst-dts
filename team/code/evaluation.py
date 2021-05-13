@@ -1,7 +1,7 @@
 import json
 import argparse
 from eval_utils import DSTEvaluator
-
+from data_utils import split_slot
 
 SLOT_META_PATH = 'data/train_dataset/slot_meta.json'
 
