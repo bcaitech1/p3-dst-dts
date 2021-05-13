@@ -7,7 +7,7 @@ import pprint
 import sys
 import copy
 from copy import deepcopy
-
+import pickle
 from attrdict import AttrDict
 from collections import Counter,defaultdict
 
@@ -211,7 +211,7 @@ def train(config_root: str):
 
     wrong_list=[] #에폭별로 wrong_answer를 담아둘 배열
     correct_list=[] #wrong_list의 에폭별 오답률을 위해 correct_answer를 담아둘 배열
-
+    guid_compare_dict_list=[]
     for epoch in range(n_epochs):
         model.train()
         pbar2 = tqdm(enumerate(train_loader), total=len(train_loader), file=sys.stdout)
@@ -256,15 +256,17 @@ def train(config_root: str):
         val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
                 loss_fnc=loss_fnc)
         # 현재 에폭에서 eval_result 외에도 틀린 예측값, ground truth값을 뽑아낸다
-        eval_result,now_wrong_list,now_correct_list = _evaluation(val_predictions, dev_labels, slot_meta)
+        eval_result,now_wrong_list,now_correct_list,guid_compare_dict = _evaluation(val_predictions, dev_labels, slot_meta)
         #eda
         domain_counter,slot_counter,value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_wrong_list))
         o_domain_counter,o_slot_counter,o_value_counter=get_Domain_Slot_Value_distribution_counter(Counter(now_correct_list))
         draw_EDA('domain',domain_counter,o_domain_counter, epoch)
         draw_EDA('slot',slot_counter,o_slot_counter, epoch)
         draw_EDA('value',value_counter,o_value_counter, epoch)
+        draw_WrongDomslot(guid_compare_dict, epoch)
         wrong_list.append(now_wrong_list)
         correct_list.append(now_correct_list)
+        guid_compare_dict_list.append(guid_compare_dict)
         print('---------Validation-----------')
         for k, v in eval_result.items():
             print(f"{k}: {v:.4f}")
@@ -291,6 +293,17 @@ def train(config_root: str):
     print(f"Best checkpoint: {best_checkpoint}",)
     # draw_WrongTrend(wrong_list)
 
+    # save
+    with open('guid_compare_dict_list.pickle', 'wb') as f:
+        pickle.dump(guid_compare_dict_list, f, pickle.HIGHEST_PROTOCOL)
+    with open('dev_idx.pickle', 'wb') as f:
+        pickle.dump(dev_idx, f, pickle.HIGHEST_PROTOCOL)
+
+    # load
+    # with open('dev_idx.pickle', 'rb') as f:
+    #     di_load = pickle.load(f)
+    # with open('guid_compare_dict.pickle', 'rb') as f:
+    #     gcd_load = pickle.load(f)
     return task_dir
 
 

@@ -139,3 +139,61 @@ def draw_WrongTrend(wrong_list:list(list()))-> None:
     plt.legend()
     plt.savefig(f'{directory}/wrong_trend.png')
     plt.show()
+
+def draw_WrongDomslot(guid_compare_dict: dict, epoch):
+    """[{"guid" : {"dom-slot" : (ground truth value , prediction value)} 리스트 전달받아 dom-slot 그래프 출력]
+    """
+    slot_list=[]
+    for values in guid_compare_dict.values():
+        for value in values.values():
+            slot_list.extend(value)
+
+    dom_slot_counter=Counter(slot_list)
+
+    dom_slot_counter=dict(sorted(dom_slot_counter.items(),key=lambda x:x[1],reverse=False))
+        
+    plt.figure(figsize=(12,7))
+    plt.title(f'top wrong dom_slot num graph ep:{epoch}')
+    plt.barh(list(dom_slot_counter.keys()),dom_slot_counter.values())
+    #         현재 디렉토리에 사진 저장
+    plt.savefig(f'{directory}/dom_slot_barplot_ep{epoch}.png')
+    plt.show()
+
+def make_Wrongdialchecker(guid_compare_dict:dict)->dict:
+    """[dev_data와 오답을 비교하여 guid에 대해 dial과 오답 slot-value를 함께 저장할 메소드]
+
+    Args:
+        guid_compare_dict (dict): [guid와 trun에 따른 정답/오답을 가진 dict]
+
+    Returns:
+        dict: [{guid: turn,user,text,state}형식의 dict 반환]
+    """
+
+    #데이터 전체 이용
+    train_data_filea = "/opt/ml/input/data/train_dataset/train_dials.json"
+    data = json.load(open(train_data_file))
+    wrong_dial_dict=dict()
+    for main_guid,values in guid_compare_dict.items():
+        wrong_dial_list=[]
+        for idx in data:
+            concat_idx=''.join(idx['dialogue_idx'].split('-'))
+            if main_guid.split(':')[0] in concat_idx:
+                for turn_guid, value in values.items():
+    #                 speecher=idx['dialogue'][int(turn_guid)*2]['role']
+                    text=idx['dialogue'][int(turn_guid)*2]['text']
+                    val=f"turn {turn_guid} : {text}"
+                    wrong_dial_list.append(val) 
+                    wrong_dial_list.append(value) 
+                wrong_dial_dict[idx['dialogue_idx']]=wrong_dial_list
+    
+    return wrong_dial_dict
+
+def check_Wrongdial(guid:str, wrong_dial_dict: dict)->list(str):
+    """[오답지 wrong_dial_dict와 오답의 guid를 넣으면 틀린 부분의 turn담화와 정답/오답state를 보여준다]
+
+    Args:
+        guid (str): [ex) "square-lab-2696:택시_2"]]
+    """
+    print(guid,"에서 틀린 부분을 확인합니다")
+    for val in wrong_dial_dict[guid]:
+        print(val)
