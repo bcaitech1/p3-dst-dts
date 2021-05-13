@@ -128,7 +128,9 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     if args.preprocessor == 'TRADEPreprocessor':
         user_first = False
         dialogue_level = False
-        processor_kwargs = AttrDict()
+        processor_kwargs = AttrDict(
+            use_zero_segment_id=args.use_zero_segment_id,
+        )
     elif args.preprocessor == 'SUMBTPreprocessor':
         user_first = True
         dialogue_level = True

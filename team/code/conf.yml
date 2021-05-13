@@ -6,7 +6,7 @@ wandb :
     entity: rolypolyvg295
     tags: 
         - v0
-        - time
+        - sys_usr_sys
 
 SharedPrams:
     data_dir: /opt/ml/input/data/train_dataset
@@ -19,11 +19,11 @@ SharedPrams:
     #prediction files만 저장
     output_dir: /opt/ml/project/team/predictions
 
-    task_name: test_reuse
+    task_name: pretrain_test
 
     save_model: True
 
-    use_small_data: True # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
+    use_small_data: False # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
 
     train_log_step: 50
     train_running_loss_len: 50
@@ -51,14 +51,15 @@ SharedPrams:
                                 # hour_min: xx시 ㅌㅌ분
     use_sys_usr_sys_turn: False # {False | True} 현재 SYS-USR를 하나의 턴으로 사용하는데
                                     # SYS-USR-SYS를 하나의 턴으로 사용하기
-    train_from_trained: /opt/ml/project/team/code/results/sys_usr_sys
+
+    train_from_trained: null #/opt/ml/project/team/code/results/sys_usr_sys
                              # {null |  모델이 있는 디렉토리}
                              # null: 사용안함
                              # 모델이 있는 디렉토리: 해당 디렉토리에서 모델, preprocessor, tokenizer, 
                              # ontology, slot_meta 가져옴(근데 상세 설정은 안 가져옴, 똑같이 사용할려면 직접 설치해)
                              # use_domain_slot 필터 작동안함, use_small_data 작동함
                              # ex) /opt/ml/project/team/code/results/decoder_long
-    use_trained_val_idxs: False # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
+    use_trained_val_idxs: True # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5
@@ -90,7 +91,7 @@ TRADE:
     hidden_size: 768
     learning_rate: !!python/float 1e-04
 
-    num_train_epochs: 5
+    num_train_epochs: 30
 
     train_batch_size: 8
     eval_batch_size: 8
@@ -107,3 +108,5 @@ TRADE:
     use_decoder_ts: True
     decoder_n_heads: 4
     decoder_n_layers: 2
+
+    use_zero_segment_id: True # {False | True} True면 segment_id 다 0으로
