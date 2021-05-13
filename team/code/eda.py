@@ -1,6 +1,8 @@
 from collections import Counter, defaultdict
 from matplotlib import pyplot as plt
 from typing import DefaultDict
+from attrdict import AttrDict
+
 import numpy as np
 import matplotlib.font_manager as fm
 import matplotlib as mpl
@@ -8,14 +10,26 @@ import os
 import copy
 import yaml
 
-with open('/opt/ml/p3-dst-dts/dohoon/code/conf.yml') as f:
-        conf = yaml.load(f, Loader=yaml.FullLoader)
+with open('/opt/ml/project/team/code/conf2.yml') as f:
+    conf = yaml.load(f, Loader=yaml.FullLoader)
 
 conf = copy.deepcopy(conf['SharedPrams'])
 #그래프 저장 장소 확인
-directory=f"{conf['model_dir']}/{conf['task_name']}"
-if not os.path.exists(directory):
-        os.makedirs(directory)
+
+conf = AttrDict(conf)
+
+train_result_dir = f'{conf.train_result_dir}/{conf.task_name}'
+
+if os.path.exists(f'{conf.train_result_dir}/{conf.task_name}'):
+    i = 1
+    while os.path.exists(f'{train_result_dir}_{i}'):
+        i += 1
+    
+    train_result_dir = f'{train_result_dir}_{i}'
+
+directory=f'{train_result_dir}/graph'
+
+
 
 # 그래프에서 마이너스 폰트 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
@@ -27,10 +41,8 @@ plt.rcParams["font.family"] = 'NanumGothicCoding'
 #매개변수 counter에 wrong_list 혹은 correct_list가 들어올 수 있다
 def get_Domain_Slot_Value_distribution_counter(counter: Counter(dict())) -> DefaultDict:
     """[key(도메인/슬롯/벨류) : value(개수) dict형식 3개 반환]
-
     Args:
         counter (Counter): [_evaluation에서 뽑아낸 "domain-slot-value" str배열에 counter를 씌워 개수를 센 것]
-
     Returns:
         dict,dict,dict: [domain,slot,value에 대한 counter]
     """
@@ -51,7 +63,6 @@ def get_Domain_Slot_Value_distribution_counter(counter: Counter(dict())) -> Defa
 
 def draw_EDA(name : str, counter: dict,o_counter: dict, epoch: int):
     """[도메인, 슬롯, 벨류에 대한 정답과 오답 개수와 확률 그래프출력]
-
     Args:
         name (str) : [input으로 들어오는 type의 종류를 명시 ex) domain, slot, value]
         counter (dict): [getWrong_Domain_Slot_Value_distribution_counter의 오답dict 반환값]
@@ -102,7 +113,6 @@ def draw_EDA(name : str, counter: dict,o_counter: dict, epoch: int):
 
 def draw_WrongTrend(wrong_list:list(list()))-> None:
     """[오답의 추이를 도메인별, 슬롯별, 벨류별로 뽑아낸다]
-
     Args:
         wrong_list (list): [에폭별 오답리스트를 담은 리스트, 5에폭이라면 len(wrong_list)==5]
     """

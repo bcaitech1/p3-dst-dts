@@ -2,6 +2,7 @@ from attrdict import AttrDict
 from importlib import import_module
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 import json
+import os
 from tqdm.auto import tqdm
 import torch
 from transformers import AutoTokenizer
@@ -14,12 +15,20 @@ from data_utils import (
     DSTPreprocessor, 
     WOSDataset)
 
+def set_directory(new_dir):
+    global directory
+    directory= new_dir
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-gen_slot_meta = set(['관광-이름', '숙소-이름', '식당-이름', '택시-도착지', '택시-출발지'])
+gen_slot_meta = set(['관광-이름', '숙소-예약 기간', '숙소-예약 명수', '숙소-이름', '식당-예약 명수', '식당-이름', '택시-도착지', '택시-출발지', '지하철-도착지', '지하철-출발지'])
+time_slot_meta = set(['식당-예약 시간', '지하철-출발 시간', '택시-도착 시간', '택시-출발 시간'])
 
 def get_active_slot_meta(args, slot_meta):
     if args.use_domain_slot == 'gen':
         filter_slot_meta = gen_slot_meta
+    elif args.use_domain_slot == 'time':
+        filter_slot_meta = time_slot_meta
     elif args.use_domain_slot == 'cat':
         filter_slot_meta = set(slot_meta) - gen_slot_meta
     else:
@@ -56,12 +65,22 @@ def filter_inference(args, data, slot_meta, ontology):
 def get_data(args):
     train_data_file = f"{args.data_dir}/train_dials.json"
     data = json.load(open(train_data_file))
-    if args.use_small_data:
-        data = data[:100]
         
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
     ontology = json.load(open(args.ontology_root))
 
+    if args.use_convert_ont:
+        if args.convert_time != 'none':
+            convert_time_dict = getattr(import_module('change_ont_value'), args.convert_time)
+            print(f'Change Time Format: xx:xx -> {convert_time_dict.example}')
+            print(f'Change {"  ".join(convert_time_dict.applied)}')
+            for cat in convert_time_dict.applied:
+                if cat in ontology:
+                    ontology[cat] = [convert_time_dict.convert(x) for x in ontology[cat]]
+            args.convert_time_dict = convert_time_dict
+        else:
+            args.convert_time_dict = None
+            
     if args.use_domain_slot == 'basic':
         if args.use_small_data:
             data = data[:100]
@@ -115,17 +134,20 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
             max_turn_length=max_turn,
             max_seq_length=args.max_seq_length,
             model_name_or_path=args.model_name_or_path,
+            args=args,
         )
     else:
         raise NotImplementedError()
 
     train_examples = get_examples_from_dialogues(
-        train_data, user_first=user_first, dialogue_level=dialogue_level, which='train'
+        train_data, user_first=user_first, use_sys_usr_sys=args.use_sys_usr_sys_turn,
+             dialogue_level=dialogue_level, which='train'
     )
 
     if dev_data is not None:
         dev_examples = get_examples_from_dialogues(
-            dev_data, user_first=user_first, dialogue_level=dialogue_level, which='val'
+            dev_data, user_first=user_first, use_sys_usr_sys=args.use_sys_usr_sys_turn,
+            dialogue_level=dialogue_level, which='val'
         )
 
     # Define Preprocessor
@@ -182,9 +204,7 @@ def get_model(args, tokenizer, ontology, slot_meta):
             )
 
         model_kwargs = AttrDict(
-            slot_vocab=tokenized_slot_meta,
-            # tokenized_slot_meta=tokenized_slot_meta,
-            slot_meta=slot_meta
+            slot_meta=tokenized_slot_meta
         )
     elif args.ModelName == 'SUMBT':
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)

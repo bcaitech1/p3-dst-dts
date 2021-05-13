@@ -5,46 +5,52 @@ import random
 import yaml
 import pprint
 import sys
-import copy 
+import copy
+from copy import deepcopy
+
 from attrdict import AttrDict
 from collections import Counter,defaultdict
+
 import torch
 import torch.nn as nn
-import copy
+
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm.auto import tqdm
+
 from transformers import AdamW, get_linear_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 
 from data_utils import (WOSDataset, load_dataset,
                         seed_everything)
 from evaluation import _evaluation
-from eda import get_Domain_Slot_Value_distribution_counter, draw_EDA,draw_WrongTrend
+from eda import *
 from train_loop import trade_train_loop, submt_train_loop
 from inference import trade_inference, sumbt_inference 
 
-from prepare import get_data, get_stuff, get_model
+from prepare import get_data, get_stuff, get_model, set_directory
 from losses import Trade_Loss, SUBMT_Loss
+
 import wandb_stuff
 import parser_maker
 from training_recorder import RunningLossRecorder
 
-def train(config_name: str):
+def train(config_root: str):
         
-    config_name = config_name
-    print(f'Using config: {config_name}')
+    print(f'Using config: {config_root}')
 
-    with open(config_name) as f:
+    with open(config_root) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f"Currnet Using Model : {conf['ModelName']}")
 
     model_name = conf['ModelName']
 
-    args_dict = copy.deepcopy(conf['SharedPrams'])
+
+    args_dict = deepcopy(conf['SharedPrams'])
     args_dict.update(conf[model_name])
 
     args = argparse.Namespace(**args_dict)
+
 
     args.ModelName = conf['ModelName']
     basic_args = args
@@ -60,7 +66,7 @@ def train(config_name: str):
 
     # Data Loading
     data, slot_meta, ontology = get_data(args)
-    train_data, dev_data, dev_labels = load_dataset(data)
+    train_data, dev_data, dev_labels, dev_idxs = load_dataset(data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
                     train_data, dev_data, slot_meta, ontology)
@@ -122,7 +128,9 @@ def train(config_name: str):
             "weight_decay": 0.0,
         },
     ]
-
+    ################################
+    ######### Train step ###########
+    ################################
     n_epochs = args.num_train_epochs
     t_total = len(train_loader) * n_epochs
     warmup_steps = int(t_total * args.warmup_ratio)
@@ -131,26 +139,53 @@ def train(config_name: str):
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
     )
 
-    if not os.path.exists(args.model_dir):
-        os.mkdir(args.model_dir)
+    if not os.path.exists(args.train_result_dir):
+        os.mkdir(args.train_result_dir)
+    
+
+    # train의 result들을 task 이름 폴더에 저장
+    task_dir = f'{args.train_result_dir}/{args.task_name}'
+
+    if os.path.exists(f'{args.train_result_dir}/{args.task_name}'):
+        i = 1
+        while os.path.exists(f'{task_dir}_{i}'):
+            i += 1
+        
+        task_dir = f'{task_dir}_{i}'
+
+    os.mkdir(f'{task_dir}')
+
+    set_directory(f'{task_dir}/graph')
+
+    print('\n')
+    print(f'Current result dir : {task_dir}')
+    print('\n')
+
 
     args_save = {k:v for k, v in args.items() if k in basic_args}
     json.dump(
         args_save,
-        open(f"{args.model_dir}/exp_config.json", "w"),
+        open(f"{task_dir}/exp_config.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
     json.dump(
         slot_meta,
-        open(f"{args.model_dir}/slot_meta.json", "w"),
+        open(f"{task_dir}/slot_meta.json", "w"),
         indent=2,
         ensure_ascii=False,
     )
 
     json.dump(
         ontology,
-        open(f"{args.model_dir}/edit_ontology_metro.json", "w"),
+        open(f"{task_dir}/edit_ontology_metro.json", "w"),
+        indent=2,
+        ensure_ascii=False,
+    )
+
+    json.dump(
+        dev_idxs,
+        open(f'{task_dir}/dev_idxs.json', 'w'),
         indent=2,
         ensure_ascii=False,
     )
@@ -248,9 +283,29 @@ def train(config_name: str):
             best_checkpoint = epoch
             
             if args.save_model:
-                torch.save(model.state_dict(), f"{args.model_dir}/{args.task_name}.bin")
+                torch.save(model.state_dict(), f"{task_dir}/model-best.bin")
 
-        print()
-        # torch.save(model.state_dict(), f"{args.model_dir}/model-{epoch}.bin")
+        # if epoch % 5 == 4:
+        #     print(f'saving to {args.train_result_dir}/model-{epoch}.bin"')
+        #     torch.save(model.state_dict(), f"{args.train_result_dir}/model-{epoch}.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
-    draw_WrongTrend(wrong_list)
+    # draw_WrongTrend(wrong_list)
+
+    return task_dir
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run Experiment')
+    parser.add_argument('-c', '--config', 
+                        type=str,
+                        help="Get config file following root",
+                        default='/opt/ml/project/team/code/conf2.yml')
+    parser = parser_maker.update_parser(parser)
+
+    config_args = parser.parse_args()
+    config_root = config_args.config
+    print(f'Using config: {config_root}')
+    
+    train(config_root)
+    
+

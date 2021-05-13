@@ -1,5 +1,6 @@
 from data_utils import convert_state_dict
 from data_utils import OntologyDSTFeature, DSTPreprocessor, _truncate_seq_pair
+from importlib import import_module
 from tqdm.auto import tqdm
 import torch
 
@@ -12,7 +13,8 @@ class SUMBTPreprocessor(DSTPreprocessor):
         ontology=None,
         max_seq_length=64,
         max_turn_length=14,
-        model_name_or_path=None
+        model_name_or_path=None,
+        args=None,
     ):
         self.slot_meta = slot_meta
         self.src_tokenizer = src_tokenizer
@@ -21,6 +23,16 @@ class SUMBTPreprocessor(DSTPreprocessor):
         self.max_seq_length = max_seq_length
         self.max_turn_length = max_turn_length
         self.model_name_or_path = model_name_or_path
+
+        self.use_convert_ont = args.use_convert_ont
+        if args.use_convert_ont:
+            self.convert_time_dict = args.convert_time_dict
+        
+            if isinstance(self.convert_time_dict['convert'], str):
+                self.convert_time_dict['convert'] = getattr(import_module('change_ont_value'),
+                    self.convert_time_dict['convert'].split('.')[1])
+                self.convert_time_dict['revert'] = getattr(import_module('change_ont_value'),
+                    self.convert_time_dict['revert'].split('.')[1])
 
     def _convert_example_to_feature(self, example):
         guid = example[0].guid.rsplit("-", 1)[0]  # dialogue_idx
@@ -62,6 +74,11 @@ class SUMBTPreprocessor(DSTPreprocessor):
             for slot_type in self.slot_meta:
                 value = slot_dict.get(slot_type, "none")
                 
+                if self.use_convert_ont:
+                    if self.convert_time_dict is not None and \
+                        slot_type in self.convert_time_dict['applied']:
+                        value = self.convert_time_dict['convert'](value)
+                
                 if value in self.ontology[slot_type]:
                     label_idx = self.ontology[slot_type].index(value)
                 else:
@@ -98,6 +115,10 @@ class SUMBTPreprocessor(DSTPreprocessor):
             state = []
             for s, p in zip(self.slot_meta, pred_slot):
                 v = self.ontology[s][p]
+                if self.use_convert_ont:
+                    if self.convert_time_dict is not None and \
+                        s in self.convert_time_dict['applied']:
+                        v = self.convert_time_dict['revert'](v)
                 if v != 'none':
                     state.append(f'{s}-{v}')
                     
