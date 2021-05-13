@@ -66,8 +66,12 @@ def get_data(args):
     train_data_file = f"{args.data_dir}/train_dials.json"
     data = json.load(open(train_data_file))
         
-    slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
-    ontology = json.load(open(args.ontology_root))
+    if args.train_from_trained is None:
+        slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
+        ontology = json.load(open(args.ontology_root))
+    else:
+        slot_meta = json.load(open(f"{args.train_from_trained}/slot_meta.json"))
+        ontology = json.load(open(f'{args.train_from_trained}/edit_ontology_metro.json'))
 
     if args.use_convert_ont:
         if args.convert_time != 'none':
