@@ -9,7 +9,7 @@ from torch.cuda.amp import autocast
 from tqdm.auto import tqdm
 import copy
 from data_utils import WOSDataset
-from prepare import get_model, get_stuff
+from prepare import get_data, get_stuff, get_model
 import parser_maker
 
 from training_recorder import RunningLossRecorder
@@ -113,10 +113,13 @@ def inference(config_root:str, task_dir:str=None):
     eval_data = json.load(open(f"{shared_conf['eval_data_dir']}/eval_dials.json", "r"))
 
     config = json.load(open(f"{task_dir}/exp_config.json", "r"))
-    # config = json.load(open(f"/opt/ml/gyujins_file/exp_config.json", "r"))
-    slot_meta = json.load(open(f"{task_dir}/slot_meta.json", "r"))
 
-    ontology = json.load(open(shared_conf['ontology_root'], "r"))
+    args_dict = copy.deepcopy(conf['SharedPrams'])
+    args_dict.update(conf[model_name])
+
+    args = argparse.Namespace(**args_dict)
+    
+    _, slot_meta, ontology = get_data(args)
 
 
     config = argparse.Namespace(**config)
@@ -134,6 +137,8 @@ def inference(config_root:str, task_dir:str=None):
         collate_fn=processor.collate_fn,
     )
     print("# eval:", len(eval_data))
+
+    print(slot_meta)
 
     model =  get_model(config, tokenizer, ontology, slot_meta)
 
@@ -160,10 +165,12 @@ def inference(config_root:str, task_dir:str=None):
     json.dump(
         predictions,
         open(f"{shared_conf['output_dir']}/{shared_conf['task_name']}.csv", "w"),
-        # open(f"{shared_conf['output_dir']}/gyus_output.csv", "w"),
         indent=2,
         ensure_ascii=False,
     )
+
+    print(f"Inference finished!\n output file is : {shared_conf['output_dir']}/{shared_conf['task_name']}.csv")
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
