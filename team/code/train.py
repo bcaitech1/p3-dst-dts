@@ -66,7 +66,7 @@ def train(config_root: str):
 
     # Data Loading
     data, slot_meta, ontology = get_data(args)
-    train_data, dev_data, dev_labels = load_dataset(data)
+    train_data, dev_data, dev_labels, dev_idxs = load_dataset(data)
 
     tokenizer, processor, train_features, dev_features = get_stuff(args,
                     train_data, dev_data, slot_meta, ontology)
@@ -183,6 +183,13 @@ def train(config_root: str):
         ensure_ascii=False,
     )
 
+    json.dump(
+        dev_idxs,
+        open(f'{task_dir}/dev_idxs.json', 'w'),
+        indent=2,
+        ensure_ascii=False,
+    )
+
     if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
         loss_fnc = Trade_Loss(tokenizer.pad_token_id, args.n_gate)
@@ -292,7 +299,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='/opt/ml/project/team/code/conf.yml')
+                        default='/opt/ml/project/team/code/conf2.yml')
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
