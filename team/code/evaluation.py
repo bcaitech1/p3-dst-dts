@@ -31,7 +31,7 @@ def _evaluation(preds, labels, slot_meta):
             input_dict=dict()
             last_guid_name=main_guid
             
-        if "지하철" in k or "택시" in k and set(l)!=set(p):
+        if "시당" in k or "지하철" in k or "택시" in k and set(l)!=set(p):
             #맞춘 부분을 제외한 모든 dom-slot-value
             
             turn_k_dict=dict()

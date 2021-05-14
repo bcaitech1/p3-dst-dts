@@ -18,7 +18,7 @@ SharedPrams:
     #prediction files만 저장
     output_dir: /opt/ml/p3-dst-dts/team/code/predictions
 
-    task_name: use_augmentationed_dataset_trade
+    task_name: real_aug_sumbt
     # task_name: sample
 
     save_model: True
@@ -82,7 +82,7 @@ TRADE:
     hidden_size: 768
     learning_rate: !!python/float 1e-04
 
-    num_train_epochs: 5
+    num_train_epochs: 10
 
     train_batch_size: 8
     eval_batch_size: 8
