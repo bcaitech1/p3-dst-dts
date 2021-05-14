@@ -63,7 +63,8 @@ def filter_inference(args, data, slot_meta, ontology):
     return data, slot_meta, ontology
 
 def get_data(args):
-    train_data_file = f"{args.data_dir}/train_dials.json"
+    # train_data_file = f"{args.data_dir}/train_dials.json"
+    train_data_file = f"{args.data_dir}/new_dataset.json"
     data = json.load(open(train_data_file))
         
     slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
