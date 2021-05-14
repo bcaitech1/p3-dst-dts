@@ -9,6 +9,7 @@ import matplotlib as mpl
 import os
 import copy
 import yaml
+import json
 
 with open('/opt/ml/p3-dst-dts/team/code/conf.yml') as f:
     conf = yaml.load(f, Loader=yaml.FullLoader)
@@ -169,7 +170,7 @@ def make_Wrongdialchecker(guid_compare_dict:dict)->dict:
     """
 
     #데이터 전체 이용
-    train_data_filea = "/opt/ml/input/data/train_dataset/train_dials.json"
+    train_data_file = "/opt/ml/input/data/train_dataset/train_dials.json"
     data = json.load(open(train_data_file))
     wrong_dial_dict=dict()
     for main_guid,values in guid_compare_dict.items():

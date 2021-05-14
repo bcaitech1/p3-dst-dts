@@ -1,4 +1,4 @@
-ModelName : TRADE    # {SUMBT, TRADE}
+ModelName : SUMBT    # {SUMBT, TRADE}
 
 wandb :
     using: True
@@ -24,7 +24,7 @@ SharedPrams:
     #prediction files만 저장
     output_dir: /opt/ml/p3-dst-dts/team/code/predictions
 
-    task_name: use_augmentationed_dataset_trade
+    task_name: real_aug_sumbt
     # task_name: sample
 
     save_model: True
@@ -65,7 +65,7 @@ SharedPrams:
                              # ontology, slot_meta 가져옴(근데 상세 설정은 안 가져옴, 똑같이 사용할려면 직접 설치해)
                              # use_domain_slot 필터 작동안함, use_small_data 작동함
                              # ex) /opt/ml/project/team/code/results/decoder_long
-    use_trained_val_idxs: True # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
+    use_trained_val_idxs: False # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5

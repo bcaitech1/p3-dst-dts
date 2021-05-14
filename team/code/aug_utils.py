@@ -95,9 +95,14 @@ def change_dialogue(dialogue:list,time_dict:dict,transfer_type:str)-> list:
             for time in time_set:
                 new_time=make_randtime(time)
 #                 print(time,new_time,time2kor(time))
-                new_dialogue=str(new_dialogue).replace(f'{dom_slot}-{time}',f'{dom_slot}-{new_time}')
+                #모든 dom_slot의 state 시간을 새로운 시간으로 변경
+                for ds in time_dict.keys():
+                    new_dialogue=str(new_dialogue).replace(f'{ds}-{time}',f'{ds}-{new_time}')
+                #아직 변경되지 않은 text에 존재하는 시간을 한글버전으로 변경
                 new_dialogue=str(new_dialogue).replace(time,time2kor(new_time))
+                #만일 text에 한글버전 시간이 존재한다면 한글버전 새시간으로 변경함
                 new_dialogue=str(new_dialogue).replace(time2kor(time),time2kor(new_time))
+                new_dialogue=str(new_dialogue).replace(time2ampm(time),time2kor(new_time))
     #오후 oo시 oo분으로 변경
     elif transfer_type=='ampm':
         new_data['dialogue_idx']=f"{dialogue['dialogue_idx']}_ampm"
@@ -105,9 +110,14 @@ def change_dialogue(dialogue:list,time_dict:dict,transfer_type:str)-> list:
             for time in time_set:
                 new_time=make_randtime(time)
 #                 print(time,new_time)
-                new_dialogue=str(new_dialogue).replace(f'{dom_slot}-{time}',f'{dom_slot}-{new_time}')
-                new_dialogue=str(new_dialogue).replace(time,time2kor(new_time))
+                #state 시간을 새로운 시간으로 변경
+                for ds in time_dict.keys():
+                    new_dialogue=str(new_dialogue).replace(f'{ds}-{time}',f'{ds}-{new_time}')
+                #text에 남아있는 기존 정규형식 시간을 ampm형식으로 변경
+                new_dialogue=str(new_dialogue).replace(time,time2ampm(new_time))
+                #text에 오전/오후 형식으로 시간이 남아있다면 새 시간으로 변경함
                 new_dialogue=str(new_dialogue).replace(time2ampm(time),time2ampm(new_time))
+                new_dialogue=str(new_dialogue).replace(time2kor(time),time2ampm(new_time))
     
     new_data['dialogue']=eval(new_dialogue)
     
@@ -148,9 +158,9 @@ def augmentation(train_dials:list)->list:
                             dom,slot,val=sv.split('-')
                             if val =='dontcare':
                                 continue
-                            if val in dic['text'] or time2kor(val) in dic['text']:
+                            if val in dic['text'] or time2kor(val) in dic['text'] or time2ampm(val) in dic['text']:
                                 time_dict[f'{dom}-{slot}'].add(val)
-                            elif idx-1>0 and time2kor(val) in dial_dial[idx-1]['text']:
+                            elif idx-1>0 and (time2kor(val) in dial_dial[idx-1]['text'] or time2ampm(val) in dial_dial[idx-1]['text']):
                                 time_dict[f'{dom}-{slot}'].add(val)
             
             if dict_checker(time_dict):
