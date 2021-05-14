@@ -1,4 +1,4 @@
-ModelName : TRADE    # {SUMBT, TRADE}
+ModelName : SUMBT    # {SUMBT, TRADE}
 
 wandb :
     using: True
@@ -42,7 +42,7 @@ SharedPrams:
     random_seed: 42
     ontology_root: /opt/ml/input/data/train_dataset/edit_ontology_metro.json #edit_ontology_metro.json
 
-    use_domain_slot: gen # {basic | gen | cat} basic 다 사용,
+    use_domain_slot: basic # {basic | gen | cat} basic 다 사용,
                             # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
                             # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
     use_convert_ont: False
@@ -60,7 +60,7 @@ SharedPrams:
                              # ontology, slot_meta 가져옴(근데 상세 설정은 안 가져옴, 똑같이 사용할려면 직접 설치해)
                              # use_domain_slot 필터 작동안함, use_small_data 작동함
                              # ex) /opt/ml/project/team/code/results/decoder_long
-    use_trained_val_idxs: True # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
+    use_trained_val_idxs: False # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5
@@ -92,11 +92,7 @@ TRADE:
     hidden_size: 768
     learning_rate: !!python/float 1e-04
 
-<<<<<<< HEAD
     num_train_epochs: 10
-=======
-    num_train_epochs: 30
->>>>>>> 7c5d3d161018636a0f7b55e491302c3db2dafd70
 
     train_batch_size: 8
     eval_batch_size: 8
