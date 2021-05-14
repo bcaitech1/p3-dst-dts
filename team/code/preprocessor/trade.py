@@ -12,6 +12,7 @@ class TRADEPreprocessor(DSTPreprocessor):
         trg_tokenizer=None,
         ontology=None,
         max_seq_length=512,
+        use_zero_segment_id=True
     ):
 
         self.slot_meta = slot_meta
@@ -21,6 +22,7 @@ class TRADEPreprocessor(DSTPreprocessor):
         self.gating2id = {"none": 0, "dontcare": 1, "yes": 2, "no": 3, "ptr": 4}
         self.id2gating = {v: k for k, v in self.gating2id.items()}
         self.max_seq_length = max_seq_length
+        self.use_zero_segment_id = use_zero_segment_id
 
     def _convert_example_to_feature(self, example):
         dialogue_context = " [SEP] ".join(example.context_turns + example.current_turn)
@@ -51,6 +53,9 @@ class TRADEPreprocessor(DSTPreprocessor):
             segment_id = segment_id[gap:]
         input_id = [self.src_tokenizer.cls_token_id] + input_id
         segment_id = [segment_id[0]] + segment_id
+
+        if self.use_zero_segment_id:
+            segment_id = [0] * len(segment_id)
 
         target_ids = []
         gating_id = []
