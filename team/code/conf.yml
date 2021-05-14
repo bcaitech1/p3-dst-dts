@@ -1,4 +1,4 @@
-ModelName : SUMBT    # {SUMBT, TRADE}
+ModelName : TRADE    # {SUMBT, TRADE}
 
 wandb :
     using: True
@@ -18,7 +18,7 @@ SharedPrams:
     #prediction files만 저장
     output_dir: /opt/ml/p3-dst-dts/team/code/predictions
 
-    task_name: use_augmentationed_dataset
+    task_name: use_augmentationed_dataset_trade
     # task_name: sample
 
     save_model: True
