@@ -65,6 +65,11 @@ def train(config_root: str):
     # random seed 고정
     seed_everything(args.random_seed)
 
+    if 'train_from_trained' not in args:
+        args.train_from_trained = None
+    if 'use_zero_segment_id' not in args:
+        args.use_zero_segment_id = False
+
     if args.train_from_trained is not None:
         trained_config = json.load(open(f'{args.train_from_trained}/exp_config.json'))
         trained_config = AttrDict(trained_config)

@@ -6,7 +6,7 @@ wandb :
     entity: vail131
     tags: 
         - v0
-        - sys_usr_sys
+        - extra-data-finetune
 
 SharedPrams:
     data_dir: /opt/ml/input/data/train_dataset
@@ -14,7 +14,12 @@ SharedPrams:
     eval_data_dir: /opt/ml/input/data/eval_dataset
 
     #train시에 나오는 결과물(eda 결과_graph dir, model bin file, inference에서 쓰는 conf)들을 저장
+
     train_result_dir: /opt/ml/p3-dst-dts/team/code/results
+    train_file_name: new_dataset.json
+
+    train_result_dir: /opt/ml/project/team/code/results 
+    
 
     #prediction files만 저장
     output_dir: /opt/ml/p3-dst-dts/team/code/predictions
@@ -37,7 +42,7 @@ SharedPrams:
 
     adam_epsilon: !!python/float 1e-08
     max_grad_norm: 1.0
-    warmup_ratio: 0.1
+    warmup_ratio: 0
     weight_decay: 0.01
     random_seed: 42
     ontology_root: /opt/ml/input/data/train_dataset/edit_ontology_metro.json #edit_ontology_metro.json
@@ -53,7 +58,7 @@ SharedPrams:
     use_sys_usr_sys_turn: False # {False | True} 현재 SYS-USR를 하나의 턴으로 사용하는데
                                     # SYS-USR-SYS를 하나의 턴으로 사용하기
 
-    train_from_trained: null #/opt/ml/project/team/code/results/sys_usr_sys
+    train_from_trained: /opt/ml/project/team/code/results/sys_usr_sys
                              # {null |  모델이 있는 디렉토리}
                              # null: 사용안함
                              # 모델이 있는 디렉토리: 해당 디렉토리에서 모델, preprocessor, tokenizer, 
@@ -90,9 +95,9 @@ SUMBT:
 
 TRADE:
     hidden_size: 768
-    learning_rate: !!python/float 1e-04
+    learning_rate: !!python/float 1e-05
 
-    num_train_epochs: 10
+    num_train_epochs: 5
 
     train_batch_size: 8
     eval_batch_size: 8
@@ -110,4 +115,8 @@ TRADE:
     decoder_n_heads: 4
     decoder_n_layers: 2
 
-    use_zero_segment_id: True # {False | True} True면 segment_id 다 0으로
+    use_zero_segment_id: False # {False | True} True면 segment_id 다 0으로
+
+SOM_DST:
+    preprocessor: SOMDSTPreprocessor
+    model_name_or_path: dsksd/bert-ko-small-minimal
