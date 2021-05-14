@@ -1,9 +1,9 @@
 ModelName : TRADE    # {SUMBT, TRADE}
 
 wandb :
-    using: False
-    project: dst
-    entity: rolypolyvg295
+    using: True
+    project: dohoon_dst
+    entity: vail131
     tags: 
         - v0
         - sys_usr_sys
@@ -14,12 +14,13 @@ SharedPrams:
     eval_data_dir: /opt/ml/input/data/eval_dataset
 
     #train시에 나오는 결과물(eda 결과_graph dir, model bin file, inference에서 쓰는 conf)들을 저장
-    train_result_dir: /opt/ml/project/team/code/results 
+    train_result_dir: /opt/ml/p3-dst-dts/team/code/results
 
     #prediction files만 저장
-    output_dir: /opt/ml/project/team/predictions
+    output_dir: /opt/ml/p3-dst-dts/team/code/predictions
 
-    task_name: pretrain_test
+    task_name: use_augmentationed_dataset_trade
+    # task_name: sample
 
     save_model: True
 
@@ -45,7 +46,7 @@ SharedPrams:
                             # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
                             # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
     use_convert_ont: False
-    convert_time: hour_min # {none | time_hour_min | hour_min} 이거 별로
+    convert_time: none # {none | time_hour_min | hour_min} 이거 별로
                                 # none: 사용안함
                                 # time_hour_min: 시간 xx시 xx분
                                 # hour_min: xx시 ㅌㅌ분
@@ -64,13 +65,13 @@ SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5
     num_train_epochs: 10
-    train_batch_size: 8
-    eval_batch_size: 8
+    train_batch_size: 4
+    eval_batch_size: 4
     model_name_or_path: dsksd/bert-ko-small-minimal
     num_rnn_layers: 1
     zero_init_rnn: False
 
-    max_seq_length: 64
+    max_seq_length: 128
     max_label_length: 12
     attn_head: 4
     fix_utterance_encoder: False

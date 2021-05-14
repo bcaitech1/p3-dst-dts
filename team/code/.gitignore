@@ -6,6 +6,7 @@ wandb
 configs/
 domain_graph_plot_ep*.png
 domain_*.png
+*.pickle
 wrong_trend.png
 graph/
 # Created by https://www.toptal.com/developers/gitignore/api/python

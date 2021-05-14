@@ -80,7 +80,7 @@ def load_dataset(data, dev_split=0.1):
 
             dev_labels[guid_t] = state
 
-    return train_data, dev_data, dev_labels
+    return train_data, dev_data, dev_labels, dev_idx
 
 
 def set_seed(seed):
