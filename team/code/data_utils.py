@@ -42,7 +42,7 @@ class WOSDataset(Dataset):
         return self.features[idx]
 
 
-def load_dataset(data, dev_split=0.1, given_dev_idx=None):
+def load_dataset(data, dev_split=0.1, given_dev_idx=None, filter_old_data=False):
     # given_dev_idx: 주어진 dev_idx로 dev split함
     num_data = len(data)
     num_dev = int(num_data * dev_split)
@@ -67,7 +67,8 @@ def load_dataset(data, dev_split=0.1, given_dev_idx=None):
         if d["dialogue_idx"] in dev_idx:
             dev_data.append(d)
         else:
-            train_data.append(d)
+            if not filter_old_data or ('0' <= d['dialogue_idx'][-1] <= '9'):
+                train_data.append(d)
 
     dev_labels = {}
     for dialogue in dev_data:

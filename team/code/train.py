@@ -69,6 +69,8 @@ def train(config_root: str):
         args.train_from_trained = None
     if 'use_zero_segment_id' not in args:
         args.use_zero_segment_id = False
+    if 'filter_old_data' not in args:
+        args.filter_old_data = False
 
     if args.train_from_trained is not None:
         trained_config = json.load(open(f'{args.train_from_trained}/exp_config.json'))
@@ -86,7 +88,8 @@ def train(config_root: str):
         given_val_idxs = json.load(open(f'{args.train_from_trained}/dev_idxs.json', 'r'))
     else:
         given_val_idxs = None
-    train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs)
+    train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs,
+            filter_old_data=args.filter_old_data)
 
     if args.train_from_trained is not None:
         tokenizer, processor, train_features, dev_features = get_stuff(trained_config,
