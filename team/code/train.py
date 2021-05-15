@@ -24,11 +24,11 @@ from data_utils import (WOSDataset, load_dataset,
                         seed_everything)
 from evaluation import _evaluation
 from eda import *
-from train_loop import trade_train_loop, submt_train_loop
-from inference import trade_inference, sumbt_inference 
+from train_loop import trade_train_loop, submt_train_loop, som_dst_train_loop
+from inference import trade_inference, sumbt_inference, som_dst_inference
 
 from prepare import get_data, get_stuff, get_model, set_directory
-from losses import Trade_Loss, SUBMT_Loss
+from losses import Trade_Loss, SUBMT_Loss, SOM_DST_Loss
 
 import wandb_stuff
 import parser_maker
@@ -71,6 +71,8 @@ def train(config_root: str):
         args.use_zero_segment_id = False
     if 'filter_old_data' not in args:
         args.filter_old_data = False
+    if 'use_val_idxs' not in args:
+        args.use_val_idxs = None
 
     if args.train_from_trained is not None:
         trained_config = json.load(open(f'{args.train_from_trained}/exp_config.json'))
@@ -86,10 +88,19 @@ def train(config_root: str):
 
     if args.train_from_trained is not None and args.use_trained_val_idxs:
         given_val_idxs = json.load(open(f'{args.train_from_trained}/dev_idxs.json', 'r'))
+    elif args.use_val_idxs is not None:
+        print(f'loading only val-idxs from {args.use_val_idxs}')
+        given_val_idxs = json.load(open(f'{args.use_val_idxs}/dev_idxs.json', 'r'))
     else:
         given_val_idxs = None
-    train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs,
+
+    if args.ModelName == 'SOM_DST':
+        train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs,
+            filter_old_data=args.filter_old_data, dev_has_label=True)
+    else:
+        train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs,
             filter_old_data=args.filter_old_data)
+    
 
     if args.train_from_trained is not None:
         tokenizer, processor, train_features, dev_features = get_stuff(trained_config,
@@ -222,6 +233,11 @@ def train(config_root: str):
         loss_fnc = SUBMT_Loss()
         train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = sumbt_inference
+    elif args.ModelName == 'SOM_DST':
+        train_loop = som_dst_train_loop
+        loss_fnc = SOM_DST_Loss(tokenizer.pad_token_id)
+        train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
+        inference_func = som_dst_inference
     else:
         raise NotImplementedError()
 
@@ -334,7 +350,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', 
                         type=str,
                         help="Get config file following root",
-                        default='/opt/ml/p3-dst-dts/team/code/conf.yml')
+                        default='/opt/ml/project/team/code/conf2.yml')
                         
     parser = parser_maker.update_parser(parser)
 

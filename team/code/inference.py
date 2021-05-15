@@ -96,38 +96,61 @@ def sumbt_inference(model, eval_loader, processor, device, use_amp=False,
     else:
         return predictions
 
+def som_dst_inference(model, eval_loader, processor, device, use_amp=False,
+        loss_fnc=None):
+    model.eval()
+    predictions = {}
+    
+    pbar = tqdm(enumerate(eval_loader), total=len(eval_loader), file=sys.stdout)
+    loss_recorder = RunningLossRecorder(len(eval_loader))
+    for step, batch in pbar:
+        input_ids, input_masks, segment_ids, state_position_ids, op_ids,\
+            domain_ids, gen_ids, max_value, max_update, guids = \
+        [b.to(args.device) if not isinstance(b, list) else b for b in batch]
+        
+        with torch.no_grad():
+            with autocast(enabled=use_amp):
+                domain_scores, state_scores, gen_scores = model(input_ids, segment_ids,
+                    state_position_ids, input_masks, max_value, op_ids)
+                
 
-def inference(config_root:str, task_dir:str=None):
+            if loss_fnc is not None:
+                with autocast(enabled=use_amp):
+                    loss_dict = loss_fnc(domain_scores, state_scores, gen_scores,
+                        domain_ids, op_ids, gen_ids)
+
+                cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
+                loss_recorder.add(cpu_loss_dict)
+            
+        pred_slots = pred_slots.detach().cpu()
+        for guid, num_turn, p_slot in zip(guids, num_turns, pred_slots):
+            pred_states = processor.recover_state(p_slot, num_turn)
+            for t_idx, pred_state in enumerate(pred_states):
+                predictions[f'{guid}-{t_idx}'] = pred_state
+    pbar.close()
+
+    if loss_fnc is not None:
+        return predictions, loss_recorder.loss()[1]
+    else:
+        return predictions
+
+
+def inference(task_dir:str=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    conf=dict()
-    with open(config_root) as f:
-        conf = yaml.load(f, Loader=yaml.FullLoader)
+    # conf=dict()
+    # with open(config_root) as f:
+    #     conf = yaml.load(f, Loader=yaml.FullLoader)
 
-    model_name=conf['ModelName']
-    #공유 conf
-    shared_conf = copy.deepcopy(conf['SharedPrams'])
-    #TRADE / SUMBT 만의 conf
-    model_conf = copy.deepcopy(conf[model_name])
-
-    if not task_dir:
-        task_dir = f"{shared_conf['train_result_dir']}/{shared_conf['task_name']}"
-
-
-    eval_data = json.load(open(f"{shared_conf['eval_data_dir']}/eval_dials.json", "r"))
+    eval_data = json.load(open(f"/opt/ml/input/data/eval_dataset/eval_dials.json", "r"))
 
     config = json.load(open(f"{task_dir}/exp_config.json", "r"))
-
-    args_dict = copy.deepcopy(conf['SharedPrams'])
-    args_dict.update(conf[model_name])
-
-    args = argparse.Namespace(**args_dict)
     
-    _, slot_meta, ontology = get_data(args)
-
-
+    print(config)
     config = argparse.Namespace(**config)
-    config.device = torch.device(config.device_pref if torch.cuda.is_available() else "cpu")
+    _, slot_meta, ontology = get_data(config)
+
+    config.device = device
 
     tokenizer, processor, eval_features, _ = get_stuff(config,
                  eval_data, None, slot_meta, ontology)
@@ -136,7 +159,7 @@ def inference(config_root:str, task_dir:str=None):
     eval_sampler = SequentialSampler(eval_data)
     eval_loader = DataLoader(
         eval_data,
-        batch_size=model_conf['eval_batch_size'],
+        batch_size=8,
         sampler=eval_sampler,
         collate_fn=processor.collate_fn,
     )
@@ -163,17 +186,15 @@ def inference(config_root:str, task_dir:str=None):
 
     predictions = inference_func(model, eval_loader, processor, device, config.use_amp)
     
-    if not os.path.exists(shared_conf['output_dir']):
-        os.mkdir(shared_conf['output_dir'])
     
     json.dump(
         predictions,
-        open(f"{shared_conf['output_dir']}/{shared_conf['task_name']}.csv", "w"),
+        open(f"{task_dir}/pred.csv", "w"),
         indent=2,
         ensure_ascii=False,
     )
 
-    print(f"Inference finished!\n output file is : {shared_conf['output_dir']}/{shared_conf['task_name']}.csv")
+    print(f"Inference finished!\n output file is : {task_dir}/pred.csv")
     
 
 if __name__ == '__main__':
@@ -189,6 +210,6 @@ if __name__ == '__main__':
     parser = parser_maker.update_parser(parser)
 
     config_args = parser.parse_args()
-    config_root = config_args.config
-    print(f'Using config: {config_root}')
-    inference(config_root)
+    # config_root = config_args.config
+    # print(f'Using config: {config_root}')
+    inference(config_args.task_dir)

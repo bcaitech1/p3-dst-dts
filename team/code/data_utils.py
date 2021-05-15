@@ -42,7 +42,8 @@ class WOSDataset(Dataset):
         return self.features[idx]
 
 
-def load_dataset(data, dev_split=0.1, given_dev_idx=None, filter_old_data=False):
+def load_dataset(data, dev_split=0.1, given_dev_idx=None,
+     filter_old_data=False, dev_has_label=False):
     # given_dev_idx: 주어진 dev_idx로 dev split함
     num_data = len(data)
     num_dev = int(num_data * dev_split)
@@ -62,13 +63,29 @@ def load_dataset(data, dev_split=0.1, given_dev_idx=None, filter_old_data=False)
     else:
         dev_idx = given_dev_idx
 
+    dev_idx_check = set(dev_idx)
+
     train_data, dev_data = [], []
+    filter_count = 0
     for d in data:
-        if d["dialogue_idx"] in dev_idx:
+        if d["dialogue_idx"] in dev_idx_check:
             dev_data.append(d)
         else:
-            if not filter_old_data or ('0' <= d['dialogue_idx'][-1] <= '9'):
+            if not filter_old_data:
                 train_data.append(d)
+            elif not ('0' <= d['dialogue_idx'][-1] <= '9'):
+                should_use = True
+                for key in dev_idx_check:
+                    if key in d['dialogue_idx']:
+                        should_use = False
+                        break
+                if should_use:
+                    train_data.append(d)
+                else:
+                    filter_count += 1
+
+    if filter_old_data:
+        print(f'filter {filter_count} from val')
 
     dev_labels = {}
     for dialogue in dev_data:
@@ -78,7 +95,10 @@ def load_dataset(data, dev_split=0.1, given_dev_idx=None, filter_old_data=False)
             if turn["role"] != "user":
                 continue
 
-            state = turn.pop("state")
+            if dev_has_label:
+                state = turn["state"]
+            else:
+                state = turn.pop("state")
 
             guid_t = f"{guid}-{d_idx}"
             d_idx += 1
@@ -148,6 +168,7 @@ class DSTInputExample:
     context_turns: List[str]
     current_turn: List[str]
     label: Optional[List[str]] = None
+    before_label: Optional[List[str]] = None
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -179,6 +200,7 @@ def get_examples_from_dialogue(dialogue, user_first=False, use_sys_usr_sys=False
     examples = []
     history = []
     d_idx = 0
+    before_state = []
     len_diag = len(dialogue["dialogue"])
     for idx, turn in enumerate(dialogue["dialogue"]):
         if turn["role"] != "user":
@@ -209,8 +231,10 @@ def get_examples_from_dialogue(dialogue, user_first=False, use_sys_usr_sys=False
                 context_turns=context,
                 current_turn=current_turn,
                 label=state,
+                before_label=before_state,
             )
         )
+        before_state = state
         history.append(sys_utter)
         history.append(user_utter)
         d_idx += 1
@@ -239,6 +263,8 @@ class DSTPreprocessor:
         self.ontology = ontology
 
     def pad_ids(self, arrays, pad_idx, max_length=-1):
+        if len(arrays) == 0:
+            return arrays
         if max_length < 0:
             max_length = max(list(map(len, arrays)))
 
