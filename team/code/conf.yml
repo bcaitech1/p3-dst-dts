@@ -21,7 +21,10 @@ SharedPrams:
     #prediction files만 저장
     output_dir: /opt/ml/project/team/predictions
 
-    task_name: submt_base
+
+    task_name: real_aug_sumbt
+    # task_name: sample
+
 
     save_model: True
 
@@ -64,7 +67,11 @@ SharedPrams:
     
     use_trained_val_idxs: True # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
 
-    use_val_idxs: /opt/ml/project/team/code/results/sys_usr_sys
+    use_val_idxs: /opt/ml/project/team/code/results/sys_usr_sys # {null | val_idx 있는 디렉토리
+                                                                # null 
+                                                                # 디렉토리에 있는 val_idx을 val에 사용함
+                                                                # train_from_trained랑 별도로 사용
+
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5

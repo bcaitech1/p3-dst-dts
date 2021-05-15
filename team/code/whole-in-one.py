@@ -32,7 +32,7 @@ if __name__ == "__main__":
     
     # 아래 글을 통해 자신의 key값 찾아 넣기
     # http://boostcamp.stages.ai/competitions/3/discussion/post/110
-    submit("Bearer 15bdf505e0902975b2e6f578148d22136b2f7717", os.path.join(test_dir, 'use_augmentationed_dataset.csv'))
+    submit("Bearer 15bdf505e0902975b2e6f578148d22136b2f7717", os.path.join(test_dir, 'real_aug_sumbt.csv'))
 
     print("전체시간 :", time.time() - start)  
 
