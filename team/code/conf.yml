@@ -2,11 +2,11 @@ ModelName : SUMBT    # {SUMBT, TRADE}
 
 wandb :
     using: True
-    project: dohoon_dst
-    entity: vail131
+    project: dst
+    entity: rolypolyvg295
     tags: 
         - v0
-        - extra-data-finetune
+        - baseline
 
 SharedPrams:
     data_dir: /opt/ml/input/data/train_dataset
@@ -14,18 +14,17 @@ SharedPrams:
     eval_data_dir: /opt/ml/input/data/eval_dataset
 
     #train시에 나오는 결과물(eda 결과_graph dir, model bin file, inference에서 쓰는 conf)들을 저장
-
-    train_result_dir: /opt/ml/p3-dst-dts/team/code/results
-    train_file_name: new_dataset.json
-
     train_result_dir: /opt/ml/project/team/code/results 
-    
+    train_file_name: train_dials.json # new_dataset_tt, train_dials
+    filter_old_data: False
 
     #prediction files만 저장
-    output_dir: /opt/ml/p3-dst-dts/team/code/predictions
+    output_dir: /opt/ml/project/team/predictions
+
 
     task_name: real_aug_sumbt
     # task_name: sample
+
 
     save_model: True
 
@@ -37,7 +36,7 @@ SharedPrams:
     use_generation_only: False
     use_gen_dialog_only: False
 
-    use_amp: False
+    use_amp: True
     device_pref: cuda
 
     adam_epsilon: !!python/float 1e-08
@@ -51,21 +50,28 @@ SharedPrams:
                             # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
                             # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
     use_convert_ont: False
-    convert_time: none # {none | time_hour_min | hour_min} 이거 별로
+    convert_time: hour_min # {none | time_hour_min | hour_min} 이거 별로
                                 # none: 사용안함
                                 # time_hour_min: 시간 xx시 xx분
                                 # hour_min: xx시 ㅌㅌ분
     use_sys_usr_sys_turn: False # {False | True} 현재 SYS-USR를 하나의 턴으로 사용하는데
                                     # SYS-USR-SYS를 하나의 턴으로 사용하기
 
-    train_from_trained: /opt/ml/project/team/code/results/sys_usr_sys
+    train_from_trained:  null #/opt/ml/project/team/code/results/sys_usr_sys
                              # {null |  모델이 있는 디렉토리}
                              # null: 사용안함
                              # 모델이 있는 디렉토리: 해당 디렉토리에서 모델, preprocessor, tokenizer, 
                              # ontology, slot_meta 가져옴(근데 상세 설정은 안 가져옴, 똑같이 사용할려면 직접 설치해)
                              # use_domain_slot 필터 작동안함, use_small_data 작동함
                              # ex) /opt/ml/project/team/code/results/decoder_long
-    use_trained_val_idxs: False # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
+    
+    use_trained_val_idxs: True # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
+
+    use_val_idxs: /opt/ml/project/team/code/results/sys_usr_sys # {null | val_idx 있는 디렉토리
+                                                                # null 
+                                                                # 디렉토리에 있는 val_idx을 val에 사용함
+                                                                # train_from_trained랑 별도로 사용
+
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5
@@ -91,13 +97,13 @@ SUMBT:
     use_linear_distance_weight: False # 애매, 아주 아주 살짝 좋아짐
     
     use_transformer: True # True -> transformer, False -> gru
-    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
+    n_transformers: 2 # transfomer block 몇개 중첩으로 사용할건지
 
 TRADE:
     hidden_size: 768
-    learning_rate: !!python/float 1e-05
+    learning_rate: !!python/float 5e-05
 
-    num_train_epochs: 5
+    num_train_epochs: 10
 
     train_batch_size: 8
     eval_batch_size: 8
@@ -118,5 +124,17 @@ TRADE:
     use_zero_segment_id: False # {False | True} True면 segment_id 다 0으로
 
 SOM_DST:
+    learning_rate: !!python/float 5e-05
     preprocessor: SOMDSTPreprocessor
     model_name_or_path: dsksd/bert-ko-small-minimal
+    model_class: SomDST
+    hidden_size: 768
+    dropout: 0.1
+    vocab_size: 35000
+    initializer_range: 0.02
+
+    train_batch_size: 8
+    eval_batch_size: 8
+    teacher_forcing_ratio: 0.5
+
+    num_train_epochs: 10

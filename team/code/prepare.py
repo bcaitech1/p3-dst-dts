@@ -227,6 +227,13 @@ def get_model(args, tokenizer, ontology, slot_meta):
             num_labels=num_labels,
             device=args.device,
         )
+    elif args.ModelName == 'SOM_DST':
+        model_kwargs = AttrDict(
+            n_op=4,
+            n_domain=5,
+            update_id=1,
+            len_tokenizer=len(tokenizer)
+        )
     else:
         raise NotImplementedError()
 

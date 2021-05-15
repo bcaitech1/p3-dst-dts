@@ -49,3 +49,28 @@ class SUBMT_Loss:
         for i, v in enumerate(loss_slot):
             ret[f'loss_slot_{i}'] = v
         return ret
+
+class SOM_DST_Loss:
+    def __init__(self, pad_token_id, exclude_domain=False):
+        self.loss_fnc_g= masked_cross_entropy_for_value
+        self.loss_fnc = nn.CrossEntropyLoss()
+        self.pad_token_id = pad_token_id
+        self.exclude_domain = exclude_domain
+
+    def __call__(self, domain_scores, state_scores, gen_scores,
+            domain_ids, op_ids, gen_ids):
+        loss_s = self.loss_fnc(state_scores.view(-1, 4), op_ids.view(-1))
+        loss_g = self.loss_fnc_g(gen_scores.contiguous(), gen_ids.contiguous(), self.pad_token_id)
+        loss = loss_s + loss_g
+
+        ret = AttrDict(
+            loss_state=loss_s,
+            loss_gen=loss_g,
+        )
+        if self.exclude_domain is not True:
+            loss_d = self.loss_fnc(domain_scores.view(-1, 5, domain_ids.view(-1)))
+            loss = loss + loss_d
+            ret['loss_domain'] = loss_d
+
+        ret['loss'] = loss
+        return ret
