@@ -63,10 +63,13 @@ def filter_inference(args, data, slot_meta, ontology):
     return data, slot_meta, ontology
 
 def get_data(args):
-    # train_data_file = f"{args.data_dir}/train_dials.json"
-    train_data_file = f"{args.data_dir}/new_dataset_final.json"
+
+    print(f'using train: {args.train_file_name}')
+    train_data_file = f"{args.data_dir}/{args.train_file_name}"
     data = json.load(open(train_data_file))
-        
+    
+    if 'train_from_trained' not in args:
+        args.train_from_trained = None
     if args.train_from_trained is None:
         slot_meta = json.load(open(f"{args.data_dir}/slot_meta.json"))
         ontology = json.load(open(args.ontology_root))
@@ -143,6 +146,10 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
             model_name_or_path=args.model_name_or_path,
             args=args,
         )
+    elif args.preprocessor == 'SOMDSTPreprocessor':
+        user_first = False
+        dialogue_level = False
+        processor_kwargs = AttrDict()
     else:
         raise NotImplementedError()
 
