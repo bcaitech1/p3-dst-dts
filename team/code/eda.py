@@ -196,10 +196,11 @@ def check_Wrongdial(guid:str, wrong_dial_dict: dict, dom_slot:str=None):
         wrong_dial_dict (dict): [오답지]
         dom_slot (str): [확인하고자 하는 tartget dom_slot]
     """
-
+    
     print(guid,"에서 틀린 부분을 확인합니다")
     for val in wrong_dial_dict[guid]:
         if dom_slot and dom_slot in val:
             print(val)
         else :
             print(val)
+    print("전체 dialogue는 다음과 같습니다")

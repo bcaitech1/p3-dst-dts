@@ -46,7 +46,6 @@ def kor2time(kor:str)-> str:
     hour=kor[0][0:-1]
     if len(kor)>1:
         minute=str(int(kor[1][0:-1]))
-    
     if int(hour)<10 :
         hour='0'+hour
     if len(minute)>0 and int(minute)<10 :
@@ -103,6 +102,7 @@ def change_dialogue(dialogue:list,time_dict:dict,transfer_type:str)-> list:
                 #만일 text에 한글버전 시간이 존재한다면 한글버전 새시간으로 변경함
                 new_dialogue=str(new_dialogue).replace(time2kor(time),time2kor(new_time))
                 new_dialogue=str(new_dialogue).replace(time2ampm(time),time2kor(new_time))
+                new_dialogue=str(new_dialogue).replace(''.join(time2ampm(time)),time2kor(new_time))
     #오후 oo시 oo분으로 변경
     elif transfer_type=='ampm':
         new_data['dialogue_idx']=f"{dialogue['dialogue_idx']}_ampm"
@@ -118,6 +118,7 @@ def change_dialogue(dialogue:list,time_dict:dict,transfer_type:str)-> list:
                 #text에 오전/오후 형식으로 시간이 남아있다면 새 시간으로 변경함
                 new_dialogue=str(new_dialogue).replace(time2ampm(time),time2ampm(new_time))
                 new_dialogue=str(new_dialogue).replace(time2kor(time),time2ampm(new_time))
+                new_dialogue=str(new_dialogue).replace(''.join(time2ampm(time)),time2ampm(new_time))
     
     new_data['dialogue']=eval(new_dialogue)
     
@@ -158,9 +159,9 @@ def augmentation(train_dials:list)->list:
                             dom,slot,val=sv.split('-')
                             if val =='dontcare':
                                 continue
-                            if val in dic['text'] or time2kor(val) in dic['text'] or time2ampm(val) in dic['text']:
+                            if val in dic['text'] or time2kor(val) in dic['text'] or time2ampm(val) in dic['text'] or ''.join(time2kor(val)) in dic['text']:
                                 time_dict[f'{dom}-{slot}'].add(val)
-                            elif idx-1>0 and (time2kor(val) in dial_dial[idx-1]['text'] or time2ampm(val) in dial_dial[idx-1]['text']):
+                            elif idx-1>0 and (time2kor(val) in dial_dial[idx-1]['text'] or time2ampm(val) in dial_dial[idx-1]['text'] or ''.join(time2kor(val)) in dial_dial[idx-1]['text']):
                                 time_dict[f'{dom}-{slot}'].add(val)
             
             if dict_checker(time_dict):
