@@ -1,4 +1,4 @@
-ModelName : SUMBT    # {SUMBT, TRADE}
+ModelName : TRADE    # {SUMBT, TRADE}
 
 wandb :
     using: True
@@ -22,7 +22,7 @@ SharedPrams:
     output_dir: /opt/ml/project/team/predictions
 
 
-    task_name: real_aug_sumbt
+    task_name: final_aug_trade_10ep
     # task_name: sample
 
 
