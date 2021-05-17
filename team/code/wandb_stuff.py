@@ -8,6 +8,7 @@ def setup(conf, args):
         wandb.init(project=wandb_conf.project, entity=wandb_conf.entity,
                  config=args, tags=wandb_conf.tags)
         args = wandb.config
+        wandb.run.name = conf['task_name']
     else:
         args = AttrDict(vars(args))
     args.wandb = wandb_conf
