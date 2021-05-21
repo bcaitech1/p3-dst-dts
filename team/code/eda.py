@@ -10,6 +10,7 @@ import os
 import copy
 import yaml
 import json
+from data_utils import split_slot
 
 with open('/opt/ml/p3-dst-dts/team/code/conf.yml') as f:
     conf = yaml.load(f, Loader=yaml.FullLoader)
@@ -204,3 +205,51 @@ def check_Wrongdial(guid:str, wrong_dial_dict: dict, dom_slot:str=None):
         else :
             print(val)
     print("전체 dialogue는 다음과 같습니다")
+    
+def get_Domain_Slot_distribution_counter(counter: Counter(dict())) -> DefaultDict:
+    """[key(도메인/슬롯/벨류) : value(개수) dict형식 3개 반환]
+    Args:
+        counter (Counter): [_evaluation에서 뽑아낸 "domain-slot-value" str배열에 counter를 씌워 개수를 센 것]
+    Returns:
+        dict,dict,dict: [domain,slot,value에 대한 counter]
+    """
+    #도메인_슬롯별 개수
+    domain_slot_counter=defaultdict(int)
+
+    for k ,v in counter.items():
+        domain_slot,_=split_slot(k,True)
+        domain_slot_counter[domain_slot]+=v
+        
+    return domain_slot_counter
+    
+def draw_WrongDS(counter: dict,o_counter: dict, epoch: int):
+    """[도메인-슬롯에 대한 정답과 오답 개수와 확률 그래프출력]
+    Args:
+        name (str) : [input으로 들어오는 type의 종류를 명시 ex) domain, slot, value]
+        counter (dict): [getWrong_Domain_Slot_Value_distribution_counter의 오답dict 반환값]
+        o_counter (dict): [getOriginal_Slot_Value_distribution_counter의 정답dict 반환값]
+        epoch (int): [epoch]
+    """
+    counter=dict(sorted(counter.items()))
+    o_counter=dict(sorted(o_counter.items()))
+    
+    #domain & slot EDA can run here
+    plt.figure(figsize=(22,10))
+    plt.subplot(1,2,1)
+    plt.title(f'wrong num per dom_slot ep:{epoch}')
+    plt.plot(o_counter.keys(),[counter.get(dom_slot,0) for dom_slot in o_counter.keys()], label="wrong")
+    plt.xticks(rotation=90)
+    plt.plot(o_counter.keys(),o_counter.values(),label="total")
+    plt.xticks(rotation=90)
+    plt.xlim([0, 1])      # X축의 범위: [xmin, xmax]
+    plt.legend()
+
+    #도메인별 오답수/도메인별 전체 개수 를 통해 오답률을 확인할 수 있습니다.
+    percentage_of_wrong=np.array([counter.get(dom_slot,0) for dom_slot in o_counter.keys()])/np.array(list(o_counter.values()))
+    plt.subplot(1,2,2)
+    plt.title(f'wrong percentage per dom_slot ep:{epoch}')
+    plt.barh(list(o_counter.keys())[::-1],percentage_of_wrong[::-1])
+    plt.xlim([0, 1])      # X축의 범위: [xmin, xmax]
+    #현재 디렉토리에 사진 저장
+    plt.savefig(f'{directory}/ds_percent_barplot_ep{epoch}.png')
+    plt.show()

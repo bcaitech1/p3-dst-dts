@@ -113,11 +113,11 @@ def inference(config_root:str, task_dir:str=None):
     if not task_dir:
         task_dir = f"{shared_conf['train_result_dir']}/{shared_conf['task_name']}"
 
-
+    
     eval_data = json.load(open(f"{shared_conf['eval_data_dir']}/eval_dials.json", "r"))
 
     config = json.load(open(f"{task_dir}/exp_config.json", "r"))
-
+    
     args_dict = copy.deepcopy(conf['SharedPrams'])
     args_dict.update(conf[model_name])
 
@@ -149,7 +149,7 @@ def inference(config_root:str, task_dir:str=None):
 
     ckpt = torch.load(f"{task_dir}/model-best.bin", map_location="cpu")
     # ckpt = torch.load("/opt/ml/gyujins_file/model-best.bin", map_location="cpu")
-
+    
     model.load_state_dict(ckpt)
     model.to(device)
     print("Model is loaded")

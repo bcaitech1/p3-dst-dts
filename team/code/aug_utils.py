@@ -9,36 +9,81 @@ def kortime_var(time:str):
         hours='0'+str(hour)
     if minute<10 and minute!=0:
         minutes='0'+str(minute)
-        
+    
+    minutes=minute
     minute='반' if minute==30 else str(minute)+'분'
     if minute=='0분':
         minute=''
         
-    time_arr=[ori_time,f'{hour}시{minute}',f'{hour}시 {minute}']
-    if hour<12:
-        time_arr.append(f'오전 {hour}시 {minute}')
-        time_arr.append(f'오전{hour}시 {minute}')
-        time_arr.append(f'오전{hour}시{minute}')
+    time_arr=set([f'{hour}시 {minute}', f'{hour}시{minute}',ori_time,f'{hour}시{minute}',f'{hour}시 {minute}'])
+    if hour<9:
+        time_arr.add(f'새벽 {hour}시 {minute}')
+        time_arr.add(f'새벽{hour}시 {minute}')
+        time_arr.add(f'새벽{hour}시{minute}')
+    elif hour<12:
+        time_arr.add(f'오전 {hour}시 {minute}')
+        time_arr.add(f'오전{hour}시 {minute}')
+        time_arr.add(f'오전{hour}시{minute}')
     if hour>=12 and hour<18:
-        time_arr.append(f'낮 {hour}시 {minute}')
-        time_arr.append(f'낮 {hour}시{minute}')
-        time_arr.append(f'오후{hour}시 {minute}')
-        time_arr.append(f'오후{hour}시{minute}')
+        time_arr.add(f'낮 {hour}시 {minute}')
+        time_arr.add(f'낮 {hour}시{minute}')
+        time_arr.add(f'오후{hour}시 {minute}')
+        time_arr.add(f'오후{hour}시{minute}')
+        time_arr.add(f'낮 {hour-12}시 {minute}')
+        time_arr.add(f'낮 {hour-12}시{minute}')
+        time_arr.add(f'오후{hour-12}시 {minute}')
+        time_arr.add(f'오후{hour-12}시{minute}')
     elif hour>=18:
-        time_arr.append(f'오후 {hour}시 {minute}')
-        time_arr.append(f'오후{hour}시 {minute}')
-        time_arr.append(f'오후{hour}시{minute}')
-        time_arr.append(f'저녁 {hour}시 {minute}')
-        time_arr.append(f'저녁{hour}시 {minute}')
-        time_arr.append(f'저녁{hour}시{minute}')
-        time_arr.append(f'오후 {hour-12}시 {minute}')
-        time_arr.append(f'오후{hour-12}시 {minute}')
-        time_arr.append(f'오후{hour-12}시{minute}')
-        time_arr.append(f'저녁 {hour-12}시 {minute}')
-        time_arr.append(f'저녁{hour-12}시 {minute}')
-        time_arr.append(f'저녁{hour-12}시{minute}')
+        time_arr.add(f'오후 {hour}시 {minute}')
+        time_arr.add(f'오후{hour}시 {minute}')
+        time_arr.add(f'오후{hour}시{minute}')
+        time_arr.add(f'저녁 {hour}시 {minute}')
+        time_arr.add(f'저녁{hour}시 {minute}')
+        time_arr.add(f'저녁{hour}시{minute}')
+        time_arr.add(f'오후 {hour-12}시 {minute}')
+        time_arr.add(f'오후{hour-12}시 {minute}')
+        time_arr.add(f'오후{hour-12}시{minute}')
+        time_arr.add(f'저녁 {hour-12}시 {minute}')
+        time_arr.add(f'저녁{hour-12}시 {minute}')
+        time_arr.add(f'저녁{hour-12}시{minute}')
+        time_arr.add(f'밤 {hour-12}시 {minute}')
+        time_arr.add(f'밤{hour-12}시 {minute}')
+        time_arr.add(f'밤{hour-12}시{minute}')
+    if minutes==30:
+        time_arr.add(f'{hour}시 {minutes}분')
+        time_arr.add(f'{hour}시{minutes}분')
+        if hour<9:
+            time_arr.add(f'새벽 {hour}시 {minutes}분')
+            time_arr.add(f'새벽{hour}시 {minute}분')
+            time_arr.add(f'새벽{hour}시{minute}분')
+        elif hour<12:
+            time_arr.add(f'오전 {hour}시 {minutes}분')
+            time_arr.add(f'오전{hour}시 {minutes}분')
+            time_arr.add(f'오전{hour}시{minutes}분')
+        if hour>=12 and hour<18:
+            time_arr.add(f'낮 {hour}시 {minutes}분')
+            time_arr.add(f'낮 {hour}시{minutes}분')
+            time_arr.add(f'오후{hour}시 {minutes}분')
+            time_arr.add(f'오후{hour}시{minutes}분')
+        elif hour>=18:
+            time_arr.add(f'오후 {hour}시 {minutes}분')
+            time_arr.add(f'오후{hour}시 {minutes}분')
+            time_arr.add(f'오후{hour}시{minutes}분')
+            time_arr.add(f'저녁 {hour}시 {minutes}분')
+            time_arr.add(f'저녁{hour}시 {minutes}분')
+            time_arr.add(f'저녁{hour}시{minutes}분')
+            time_arr.add(f'오후 {hour-12}시 {minutes}분')
+            time_arr.add(f'오후{hour-12}시 {minutes}분')
+            time_arr.add(f'오후{hour-12}시{minutes}분')
+            time_arr.add(f'저녁 {hour-12}시 {minutes}분')
+            time_arr.add(f'저녁{hour-12}시 {minutes}분')
+            time_arr.add(f'저녁{hour-12}시{minutes}분')
+            time_arr.add(f'밤 {hour-12}시 {minutes}분')
+            time_arr.add(f'밤{hour-12}시 {minutes}분')
+            time_arr.add(f'밤{hour-12}시{minutes}분')
     
-    return sorted([x.strip() for x in time_arr],key=lambda x:len(x),reverse=True)
+    
+    return sorted([x.strip() for x in list(time_arr)],key=lambda x:len(x),reverse=True)
 
 
 def time2kor(time:str,option=None)-> str:
@@ -157,10 +202,11 @@ def change_dialogue(dialogue:list,time_dict:dict,transfer_type:str)-> list:
                     new_dialogue=str(new_dialogue).replace(f'{ds}-{time}',f'{ds}-{new_time}')
                 #아직 변경되지 않은 text에 존재하는 시간을 한글버전으로 변경
                 for t in kortime_var(time):
-                    nt_var=kortime_var(new_time)
-                    ran=random.randrange(0,len(nt_var))
-                    new_dialogue=new_dialogue.replace(t,nt_var[ran])
-                    break
+                    if t in new_dialogue:
+                        nt_var=kortime_var(new_time)
+                        ran=random.randrange(0,len(nt_var))
+                        new_dialogue=new_dialogue.replace(t,nt_var[ran])
+                        break
 #     #오후 oo시 oo분으로 변경
 #     elif transfer_type=='ampm':
 #         new_data['dialogue_idx']=f"{dialogue['dialogue_idx']}_ampm"
