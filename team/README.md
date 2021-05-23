@@ -1,10 +1,10 @@
 ### 1. 파일 설명
 
-> code 폴더
+#### code 폴더
 
 `code`: 코드 있는 폴더
 
-> ipynb 파일들
+#### ipynb 파일들
 
 `coco.ipynb`: coco aug에 사용된 파일, generate해서 under-generation 필터까지 하고 결과를 저장
 
