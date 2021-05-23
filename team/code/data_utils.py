@@ -41,15 +41,34 @@ class WOSDataset(Dataset):
     def __getitem__(self, idx):
         return self.features[idx]
 
-
 def load_dataset(data, dev_split=0.1, given_dev_idx=None,
      filter_old_data=False, dev_has_label=False):
-    # given_dev_idx: 주어진 dev_idx로 dev split함
+    """ 데이터를 train, dev로 나눔
+    제공된 코드에서 이것 저것 추가함
+
+    given_dev_idx: 특정한 dev idx로 dev 나눌때 사용, 리턴하는 dev_idx 기존꺼 리턴
+    filter_old_data: 추가 데이터에서 dev에 사용될게 train에 안들어가게 필터 여부
+        추가 데이터 형식이 숫자가 아니라는 가정
+        이거 사용 안함, 사실 잘 기억 안남
+    dev_has_label: dev 데이터도 train 데이터처럼 label 가지게함
+
+    Args:
+        data: data
+        dev_split (float, optional): 나누는 비율. Defaults to 0.1.
+        given_dev_idx (list, optional): dev idx 리스트. Defaults to None.
+        filter_old_data (bool, optional): 뭐였지. Defaults to False.
+        dev_has_label (bool, optional): dev 데이터 label 여부. Defaults to False.
+
+    Returns:
+        tuple: train_data, dev_data, dev_labels, dev_idx
+    """
+    # no dev
     num_data = len(data)
     num_dev = int(num_data * dev_split)
     if not num_dev:
         return data, [], None, None  # no dev dataset
 
+    # 제공된 dev idx 사용
     if given_dev_idx is None:
         dom_mapper = defaultdict(list)
         for d in data:
@@ -65,6 +84,7 @@ def load_dataset(data, dev_split=0.1, given_dev_idx=None,
 
     dev_idx_check = set(dev_idx)
 
+    # train, dev 나눔
     train_data, dev_data = [], []
     filter_count = 0
     for d in data:
@@ -194,8 +214,19 @@ def _truncate_seq_pair(tokens_a, tokens_b, max_length):
         else:
             tokens_b.pop()
 
-
 def get_examples_from_dialogue(dialogue, user_first=False, use_sys_usr_sys=False):
+    """ 제공된 거랑 거의 비슷
+
+    use_sys_usr_sys: SYS USR SYS로 사용할지 여부
+
+    Args:
+        dialogue: 다이얼로그
+        user_first (bool, optional): 유저, 시스템 발화 순서 여부. Defaults to False.
+        use_sys_usr_sys (bool, optional): SYS, USR, SYS 사용 여부. Defaults to False.
+
+    Returns:
+        examples
+    """
     guid = dialogue["dialogue_idx"]
     examples = []
     history = []
@@ -243,6 +274,21 @@ def get_examples_from_dialogue(dialogue, user_first=False, use_sys_usr_sys=False
 
 def get_examples_from_dialogues(data, user_first=False, use_sys_usr_sys=False,
          dialogue_level=False, which=''):
+    """ 제공된 거랑 거의 같음
+
+    use_sys_usr_sys: SYS USR SYS로 사용할지 여부
+    which: 출력용, 지금 dev인지, train인지 보이게
+
+    Args:
+        data: 데이터
+        user_first (bool, optional): 유저, 시스템 발화 순서 여부. Defaults to False.
+        use_sys_usr_sys (bool, optional): SYS, USR, SYS 사용 여부. Defaults to False.
+        dialogue_level (bool, optional): 다이얼로그를 1단 2단 할지. Defaults to False.
+        which (str, optional): tqdm 출력용. Defaults to ''.
+
+    Returns:
+        examples, dialogue_level에 따라 형식은 조금 다름
+    """
     examples = []
     pbar = tqdm(data, desc=f'Getting {which} examples from dialogues')
     for d in pbar:

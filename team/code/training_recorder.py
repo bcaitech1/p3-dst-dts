@@ -5,6 +5,8 @@ from torch._six import container_abcs
 from attrdict import AttrDict
 from functools import partial
 
+# 이건 첫번째 대회때 만든거 다시 재활용한거입니다!
+# 코드 오류가 없기를 
 class RunningLossRecorder:
     def __init__(self, number_to_record):
         self.n = number_to_record

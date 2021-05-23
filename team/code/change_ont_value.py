@@ -1,5 +1,8 @@
 from attrdict import AttrDict
 
+""" ontology 바꿀 때 사용하는 함수들(사실 이거 한번 해보고 사용 안함)
+"""
+
 default_values = set(['none', 'dontcare'])
 
 def convert_time_hour_min(s):

@@ -1,3 +1,4 @@
+# Wandb Sweep용
 program: train.py
 project: dst
 entity: rolypolyvg295

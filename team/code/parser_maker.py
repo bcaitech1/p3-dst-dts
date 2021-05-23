@@ -1,4 +1,9 @@
 from attrdict import AttrDict
+
+""" wandb sweep를 위해 argparser 생성기
+근데 나중에는 사용안해서 코드 잘되는지 모름
+"""
+
 conf_keys = AttrDict(
     train_batch_size=int,
     eval_batch_size=int,
