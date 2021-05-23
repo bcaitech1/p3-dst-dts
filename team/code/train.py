@@ -35,10 +35,32 @@ import parser_maker
 from training_recorder import RunningLossRecorder
 from aug_utils import *
 
-def train(config_root: str):
-        
+""" 이 파일은 단일로 사용시 모델 학습을 할 수 있고 
+    다른 파일에서 사용 가능한 train함수가 있음
+
+모델 학습은 config 파일을 사용해서 학습함
+그냥 사용하면 정해진 default config path를 사용하고
+-c, --config로 특정 config path에 있는 파일 사용 가능
+"""
+
+def train(config_root: str) -> str:
+    """ config를 받아서 해당 내용에 맞게 학습시키는 함수
+
+    Args:
+        config_root (str): config 파일 이름, 형식은 yaml이어야됨
+
+    Raises:
+        NotImplementedError: 지원되지 않는 모델로 학습시킬려고 할때 뜸
+
+    Returns:
+        str: 학습된 모델이 저장된 폴더 이름 리턴, inference랑 연동을 위해서인듯
+    """
+
+    # Config 가져오고 기본 설정하는 부분
     print(f'Using config: {config_root}')
 
+    # conf는 SharedParams, 모든 모델 ModleParmarms,
+    #  Wandb 사용여부 wandb로 이루어짐
     with open(config_root) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -46,12 +68,11 @@ def train(config_root: str):
 
     model_name = conf['ModelName']
 
-
+    # args_dict는 yaml에서 정의된 SharedParams랑 특정 ModelParams만 사용
     args_dict = deepcopy(conf['SharedPrams'])
     args_dict.update(conf[model_name])
 
     args = argparse.Namespace(**args_dict)
-
 
     args.ModelName = conf['ModelName']
     basic_args = args
@@ -65,6 +86,7 @@ def train(config_root: str):
     # random seed 고정
     seed_everything(args.random_seed)
 
+    # 호환성 위해서 추가
     if 'train_from_trained' not in args:
         args.train_from_trained = None
     if 'use_zero_segment_id' not in args:
@@ -74,6 +96,7 @@ def train(config_root: str):
     if 'use_val_idxs' not in args:
         args.use_val_idxs = None
 
+    # 이미 학습된 모델에서 가져올 경우
     if args.train_from_trained is not None:
         trained_config = json.load(open(f'{args.train_from_trained}/exp_config.json'))
         trained_config = AttrDict(trained_config)
@@ -86,6 +109,7 @@ def train(config_root: str):
     # Data Loading
     data, slot_meta, ontology = get_data(args)
 
+    # 특정 다이얼로그를 validation으로 사용하고 싶을 때
     if args.train_from_trained is not None and args.use_trained_val_idxs:
         given_val_idxs = json.load(open(f'{args.train_from_trained}/dev_idxs.json', 'r'))
     elif args.use_val_idxs is not None:
@@ -94,6 +118,7 @@ def train(config_root: str):
     else:
         given_val_idxs = None
 
+    # data train, val로 분리
     if args.ModelName == 'SOM_DST':
         train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs,
             filter_old_data=args.filter_old_data, dev_has_label=True)
@@ -101,7 +126,8 @@ def train(config_root: str):
         train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs,
             filter_old_data=args.filter_old_data)
     
-
+    # data -> examples -> features로 변환해서 얻기
+    # 연관된 tokenizer, processor, model 얻기
     if args.train_from_trained is not None:
         tokenizer, processor, train_features, dev_features = get_stuff(trained_config,
             train_data, dev_data, slot_meta, ontology)
@@ -131,7 +157,6 @@ def train(config_root: str):
         collate_fn=processor.collate_fn,
     )
 
-
     dev_data = WOSDataset(dev_features)
     dev_sampler = SequentialSampler(dev_data)
     dev_loader = DataLoader(
@@ -148,8 +173,7 @@ def train(config_root: str):
     print('##### START TRAINING #####')
 
     # Optimizer 및 Scheduler 선언
-    ### 이 부분은 SUMBT에만 있던거
-    ### TODO: args.no_decay로 하면 어떨까?
+    ### TODO: args.no_decay로 하면 어떨까?(이건 결국 안함)
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
@@ -161,9 +185,8 @@ def train(config_root: str):
             "weight_decay": 0.0,
         },
     ]
-    ################################
-    ######### Train step ###########
-    ################################
+
+    # 실제 학습하는 부분
     n_epochs = args.num_train_epochs
     t_total = len(train_loader) * n_epochs
     warmup_steps = int(t_total * args.warmup_ratio)
@@ -194,7 +217,7 @@ def train(config_root: str):
     print(f'Current result dir : {task_dir}')
     print('\n')
 
-
+    # 현재 세팅 저장
     args_save = {k:v for k, v in args.items() if k in basic_args}
     json.dump(
         args_save,
@@ -223,6 +246,8 @@ def train(config_root: str):
         ensure_ascii=False,
     )
 
+    # 각각 모델마다 train할 때 다른 형식(batch에서 나온거나, teacher_forcing)인거 같아서
+    # 각각 모델마다 각각 train, inference loop 만듬
     if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
         loss_fnc = Trade_Loss(tokenizer.pad_token_id, args.n_gate)
@@ -276,6 +301,7 @@ def train(config_root: str):
             cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
             loss_recorder.add(cpu_loss_dict)
 
+            # log step
             if step != 0 and (step % args.train_log_step == 0 or step == len(train_loader) - 1):
                 log_loss_dict = loss_recorder.loss()[1]
                 if len(log_loss_dict) >= 5:
@@ -291,6 +317,7 @@ def train(config_root: str):
 
             total_step += 1
         pbar2.close()
+        # validation 부분
         val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
                 loss_fnc=loss_fnc)
         # 현재 에폭에서 eval_result 외에도 틀린 예측값, ground truth값을 뽑아낸다
@@ -305,6 +332,8 @@ def train(config_root: str):
         wrong_list.append(now_wrong_list)
         correct_list.append(now_correct_list)
         guid_compare_dict_list.append(guid_compare_dict)
+
+        # 화면 출력용
         print('---------Validation-----------')
         for k, v in eval_result.items():
             print(f"{k}: {v:.4f}")
@@ -314,6 +343,8 @@ def train(config_root: str):
             loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in loss_dict.items()])
         print(loss_showing)
         print('------------------------------')
+
+        # wandb logging
         wandb_stuff.val_log(args, eval_result, loss_dict, total_step, epoch+1)
 
         if best_score < eval_result['joint_goal_accuracy']:
@@ -351,10 +382,13 @@ if __name__ == "__main__":
                         type=str,
                         help="Get config file following root",
                         default='/opt/ml/project/team/code/conf2.yml')
-                        
-    parser = parser_maker.update_parser(parser)
 
+    # wandb sweep 연동을 위해서 추가함
+    # (코드 합치다가 어떻게 되서 wandb sweep 연동 됬는지는 모름
+    # 어차피 학습 시간 길어서 잘 사용 안하기도 하고
+    parser = parser_maker.update_parser(parser)
     config_args = parser.parse_args()
+
     config_root = config_args.config
     print(f'Using config: {config_root}')
     
